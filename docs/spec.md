@@ -116,6 +116,7 @@ PGlite は同時に 1 つの接続しか持てず、2 つのセッションで�
 - リンターとフォーマッターは入れない。開発者が 1 人のあいだは、型検査で足りる。
 - React などの UI フレームワークと MDX は使わない。画面の動きは Astro が束ねる素の TypeScript で書く。MDX は本文中の `<` と `{` のエスケープを要求し、比較演算子を説明するレッスンと相性が悪い。
 - `astro.config.mjs` には `site`（`https://ccc-k-fujimura.github.io`）、`base`（`/learn-sql-from-browser`）、`vite.optimizeDeps.exclude: ['@electric-sql/pglite']` を書く。公開 URL は `https://ccc-k-fujimura.github.io/learn-sql-from-browser/` になる。
+- 同じファイルに `vite.worker.format: 'es'` と `markdown.syntaxHighlight: false` も書く。前者は、PGlite が中で動的 import を使うので、Worker を ES モジュールとして出力するためである。後者は、`sql` のコードブロックをエディタに置き換えるのでビルド時の色分けが要らず、切ると `<pre><code class="language-sql">` という探しやすい形で出力されるからである。
 - 本文中のリンクは相対パスで書くか、テンプレートで `base` を付けて生成する。絶対パスのリンクには `base` が付かず、GitHub Pages で切れる。
 - 公開は GitHub Actions で行う。`withastro/action@v6` がビルドと成果物のアップロードを、`actions/deploy-pages@v5` が公開を行う。権限に `pages: write` と `id-token: write` を与え、リポジトリの Pages の設定で Source に GitHub Actions を選ぶ。
 - ワークフロー（`.github/workflows/ci.yml`）は、型検査とテスト、ビルド、公開の順に進む。PR では公開の手前のビルドまでを行い、main への push でだけ公開する。
@@ -131,8 +132,8 @@ PGlite は同時に 1 つの接続しか持てず、2 つのセッションで�
 PGlite は Web Worker の中で動かす。
 メインスレッドを止めないためと、終わらない SQL を Worker ごと捨てて止めるためである。
 
-- **起動**：`PGlite.create()` のあと `SET TimeZone = 'Asia/Tokyo';` を実行する。
-- **リセット**：学習者の SQL を実行する直前に毎回、`ROLLBACK; DROP SCHEMA public CASCADE; CREATE SCHEMA public;` と題材データの SQL を流す。先頭の `ROLLBACK` は、学習者が `BEGIN` を残した場合に備えるものである。`BEGIN` と `ROLLBACK` で包む方法は、学習者の `COMMIT` で確定してしまううえシーケンスも戻らないので採らない。
+- **起動**：`PGlite.create()` で作る。タイムゾーンはリセットのたびに設定する。
+- **リセット**：学習者の SQL を実行する直前に毎回、`ROLLBACK; RESET ALL; DISCARD TEMP; SET TimeZone = 'Asia/Tokyo'; DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;` と題材データの SQL を流す。先頭の `ROLLBACK` は、学習者が `BEGIN` を残した場合に備えるものである。`RESET ALL` は `SET search_path` のようなセッションの設定を戻し、`DISCARD TEMP` は `books` と同じ名前の一時テーブルを消す。`DISCARD ALL` は複数の文の中では実行できないので使わない。`IF EXISTS` は、学習者が `public` スキーマを消した場合に備えるものである。`BEGIN` と `ROLLBACK` で包む方法は、学習者の `COMMIT` で確定してしまううえシーケンスも戻らないので採らない。`public` 以外に学習者が作ったスキーマは残るが、`SELECT` だけを扱う入門では困らない。
 - **実行**：`exec(sql, { rowMode: 'array', parsers })` で実行する。`query()` は複数の文を受け付けない。既定の `rowMode` では同じ名前の列が 1 つに潰れる。
 - **値の受け取り**：`parsers` には、主な型の OID（16、20、21、23、25、700、701、1043、1082、1083、1114、1184、1700）に恒等関数を渡し、値を PostgreSQL の文字列表現のまま受け取る。
 - **採点に使う結果**：`exec()` が返す配列の最後の要素を使う。`fields` が空なら「結果の表がない」と扱う。
@@ -185,7 +186,7 @@ SQL の文面は見ない。
 - **答え**：答え合わせで 1 回間違えたら開ける。
 - **リセット**：実行のたびに DB が初期状態に戻るので、ボタンは置かない。
 - **NULL**：結果の表では灰色の斜体で `NULL` と書き、空文字と見分けられるようにする。
-- **エディタ**：CodeMirror 6 を `basicSetup` と `sql({ dialect: PostgreSQL, schema, upperCaseKeywords: true })` で使う。`schema` に `books` の列を渡して補完に使う。Windows の Chrome と Edge で、既定の設定のまま日本語入力に問題がないことを確かめた。
+- **エディタ**：CodeMirror 6 を `basicSetup` と `sql({ dialect: PostgreSQL, schema, defaultTable, upperCaseKeywords: true })` で使う。`schema` に `books` の列を渡して補完に使う。`defaultTable` に `books` を渡さないと、列名は `books.` の後ろでしか補完されない。Windows の Chrome と Edge で、既定の設定のまま日本語入力に問題がないことを確かめた。
 
 エラーは日本語の説明を先に出し、英語の元のメッセージは折りたたむ。
 `position` があれば、エディタ上のその位置から語の終わりまでに波線を引く。

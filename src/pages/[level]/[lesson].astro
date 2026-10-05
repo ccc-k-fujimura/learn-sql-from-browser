@@ -1,0 +1,77 @@
+---
+import { getCollection, render } from 'astro:content';
+import { levels } from '../../levels';
+
+export async function getStaticPaths() {
+  const lessons = await getCollection('lessons');
+  return lessons.map((entry) => {
+    const [level, lesson] = entry.id.split('/');
+    return { params: { level, lesson }, props: { entry } };
+  });
+}
+
+const { entry } = Astro.props;
+const level = levels.find((l) => l.id === Astro.params.level)!;
+const schema = Object.fromEntries(Object.entries(level.tables).map(([table, columns]) => [table, columns.map((c) => c.name)]));
+const { Content } = await render(entry);
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{entry.data.title} | ブラウザで学ぶ SQL</title>
+  </head>
+  <body>
+    <div id="db-banner" class="db-banner" hidden>データベースを準備しています…</div>
+    <main data-schema={JSON.stringify(schema)}>
+      <h1>{entry.data.title}</h1>
+      {
+        Object.entries(level.tables).map(([table, columns]) => (
+          <div class="scroll">
+            <table class="columns">
+              <caption>{table} テーブルの列</caption>
+              <thead>
+                <tr><th>列名</th><th>意味</th><th>値の例</th></tr>
+              </thead>
+              <tbody>
+                {columns.map((c) => (
+                  <tr><td><code>{c.name}</code></td><td>{c.meaning}</td><td>{c.example}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))
+      }
+      <Content />
+    </main>
+    <script>
+      // PGlite とエディタは、実行できる SQL があるページでだけ読み込む
+      if (document.querySelector('pre > code.language-sql')) import('../../scripts/lesson');
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.7 system-ui, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif; color: #1f2328; background: #fff; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.6rem; }
+  code, pre, .cm-editor { font-family: ui-monospace, Consolas, "BIZ UDGothic", monospace; font-size: 15px; }
+  pre { background: #f6f8fa; padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
+  table { border-collapse: collapse; font-size: .92rem; }
+  th, td { border: 1px solid #d0d7de; padding: 2px 10px; text-align: left; }
+  th { background: #f6f8fa; }
+  caption { text-align: left; font-weight: 600; }
+  button { font: inherit; margin: 8px 0; padding: 4px 14px; border: 1px solid #c8ccd1; border-radius: 4px; background: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .scroll, .result { overflow-x: auto; }
+  .result td { white-space: nowrap; }
+  .null { color: #8c959f; font-style: italic; }
+  .count { color: #656d76; font-size: .9rem; margin: 4px 0; }
+  .error { background: #fff5f5; border: 1px solid #ff8182; }
+  .example { margin: 8px 0 16px; }
+  .cm-editor { border: 1px solid #c8ccd1; border-radius: 4px; }
+  .db-banner { position: sticky; top: 0; z-index: 10; padding: 4px 16px; background: #fff8c5; font-size: .9rem; }
+</style>
