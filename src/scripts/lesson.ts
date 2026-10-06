@@ -21,32 +21,59 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLEle
   return el;
 }
 
-function renderTable({ fields, rows }: ResultTable): Node {
+// extra（行番号）の行は赤くし、色の見え方に頼らないよう、先頭に足した列にも「余分」と書く
+function renderTable({ fields, rows }: ResultTable, { caption, extra = [] }: { caption?: string; extra?: number[] } = {}): Node {
+  const hasExtra = extra.length > 0;
   return h('div', { className: 'overflow-x-auto [&_td]:whitespace-nowrap' },
     h('table', {},
-      h('thead', {}, h('tr', {}, ...fields.map((f) => h('th', {}, f.name)))),
-      h('tbody', {}, ...rows.map((row) =>
-        h('tr', {}, ...row.map((v) => h('td', {}, v === null ? h('span', { className: 'text-null italic' }, 'NULL') : String(v))))))),
+      ...(caption ? [h('caption', {}, caption)] : []),
+      h('thead', {}, h('tr', {},
+        ...(hasExtra ? [h('th', {}, h('span', { className: 'sr-only' }, '余分な行の印'))] : []),
+        ...fields.map((f) => h('th', {}, f.name)))),
+      h('tbody', {}, ...rows.map((row, i) => {
+        const isExtra = extra.includes(i);
+        return h('tr', { className: isExtra ? 'bg-row-extra-bg' : '' },
+          ...(hasExtra ? [h('td', { className: 'text-wrong' }, isExtra ? '余分' : '')] : []),
+          ...row.map((v) => h('td', {}, v === null ? h('span', { className: 'text-null italic' }, 'NULL') : String(v))));
+      }))),
     h('p', { className: 'my-1 text-[.9rem] text-muted' }, `${rows.length} 行`));
+}
+
+const buttonClass = 'my-2 cursor-pointer rounded border border-control bg-page px-3.5 py-1 disabled:cursor-default disabled:opacity-50';
+
+// ヒントはボタンを押すたびに 1 つずつ出す。文は Markdown として解釈せず、そのまま出す
+function renderHints(hints: string[]): Node[] {
+  const list = h('ol', { className: 'empty:hidden' });
+  const next = h('button', { type: 'button', className: buttonClass, hidden: hints.length === 0 }, 'ヒント 1 を見る');
+  next.onclick = () => {
+    list.append(h('li', { className: 'whitespace-pre-line' }, hints[list.childElementCount]!));
+    next.textContent = `ヒント ${list.childElementCount + 1} を見る`;
+    next.hidden = list.childElementCount === hints.length;
+  };
+  return [list, next];
 }
 
 // ponytail: 英語のメッセージだけ出す。日本語の説明と波線は #6 で足す
 const renderError = (error: SqlError) => h('pre', { className: 'border border-error-line bg-error-bg' }, error.message);
 
-// エディタと実行ボタンを作る。ボタンか Ctrl + Enter で SQL を実行し、エラーならその表示を、
-// 成功なら結果の表を onResult に渡して返った要素を、下に出す
-function createRunner(doc: string, label: string, onResult: (result: ResultTable | null) => Node[] | Promise<Node[]>) {
+// エディタと実行ボタンを作る。ボタンか Ctrl + Enter で SQL を実行し、エラーならその表示を出して onError を呼ぶ。
+// 成功なら結果の表と SQL を onResult に渡し、返った要素を下に出す
+function createRunner(
+  doc: string,
+  label: string,
+  onResult: (result: ResultTable | null, sql: string) => Node[] | Promise<Node[]>,
+  onError?: () => void,
+) {
   const out = h('div');
-  const button = h('button', {
-    type: 'button',
-    className: 'my-2 cursor-pointer rounded border border-control bg-page px-3.5 py-1 disabled:cursor-default disabled:opacity-50',
-  }, label);
+  const button = h('button', { type: 'button', className: buttonClass }, label);
   const go = async () => {
     if (button.disabled) return;
     button.disabled = true;
     try {
-      const res = await run(editor.state.doc.toString());
-      out.replaceChildren(...(res.ok ? await onResult(res.result) : [renderError(res.error)]));
+      const sql = editor.state.doc.toString();
+      const res = await run(sql);
+      out.replaceChildren(...(res.ok ? await onResult(res.result, sql) : [renderError(res.error)]));
+      if (!res.ok) onError?.();
     } finally {
       button.disabled = false;
     }
@@ -82,19 +109,32 @@ for (const code of document.querySelectorAll('pre > code.language-sql')) {
 
 // 演習は、模範解答をその場で実行した期待結果と比べて採点する。期待結果の表は見せない
 for (const section of document.querySelectorAll<HTMLElement>('.exercise')) {
-  const { answer, ...options }: { answer: string } & GradeOptions = JSON.parse(section.dataset.exercise!);
+  const { answer, hints, ...options }: { answer: string; hints: string[] } & GradeOptions = JSON.parse(section.dataset.exercise!);
   let expected: Promise<ResultTable> | undefined;
-  const { editor, button, out } = createRunner('', '実行して答え合わせ', async (result) => {
+  // 模範解答は、答え合わせで 1 回間違えるまで開けない。SQL のエラーも間違いに数え、空のままの実行は数えない
+  const answerBox = h('details', { hidden: true },
+    h('summary', { className: 'cursor-pointer' }, '模範解答を見る'),
+    h('pre', {}, answer.trimEnd()));
+  const unlockAnswer = () => (answerBox.hidden = false);
+  const { editor, button, out } = createRunner('', '実行して答え合わせ', async (result, sql) => {
     // ponytail: 模範解答がエラーにも結果の表なしにもならないことは、#8 の自動検査で確かめる
     expected ??= run(answer).then((r) => {
       if (r.ok && r.result) return r.result;
       throw new Error(`模範解答を実行できません：${answer}`);
     });
-    const verdict = grade(await expected, result, options);
+    const expectedTable = await expected;
+    const verdict = grade(expectedTable, result, options);
+    if (!verdict.ok && sql.trim()) unlockAnswer();
+    const diff = !verdict.ok && verdict.kind === 'rows' ? verdict : undefined;
     return [
       h('p', { className: `my-2 rounded px-3 py-1.5 ${verdict.ok ? 'bg-correct-bg text-correct' : 'bg-wrong-bg text-wrong'}` }, verdictText(verdict)),
-      ...(result ? [renderTable(result)] : []),
+      ...(result ? [renderTable(result, { caption: 'あなたの結果', extra: diff?.extra })] : []),
+      ...(diff?.missing.length
+        ? [h('div', { className: 'mt-4 [&_tbody_tr]:bg-row-missing-bg' },
+            renderTable({ fields: expectedTable.fields, rows: diff.missing.map((i) => expectedTable.rows[i]!) }, { caption: '足りない行' }))]
+        : []),
     ];
-  });
-  section.append(editor, button, h('span', { className: 'ml-2 text-[.9rem] text-muted' }, 'Ctrl + Enter でも実行できます'), out);
+  }, unlockAnswer);
+  section.append(editor, button, h('span', { className: 'ml-2 text-[.9rem] text-muted' }, 'Ctrl + Enter でも実行できます'), out,
+    ...renderHints(hints), answerBox);
 }

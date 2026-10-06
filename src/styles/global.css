@@ -16,6 +16,8 @@
   --color-correct-bg: #dafbe1;
   --color-wrong: #a40e26; /* 間違いの帯の文字 */
   --color-wrong-bg: #ffebe9;
+  --color-row-extra-bg: #ffebe9; /* 答え合わせの余分な行 */
+  --color-row-missing-bg: #fff8c5; /* 答え合わせの足りない行 */
   --color-notice-bg: #fff8c5; /* データベースを準備中の帯 */
   --color-error-bg: #fff5f5; /* SQL のエラー */
   --color-error-line: #ff8182;
