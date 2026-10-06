@@ -1,0 +1,32 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import { levelLessons } from '../../lessons';
+import { levels } from '../../levels';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('lessons');
+  return levels.filter((l) => l.published).map((level) => ({ params: { level: level.id }, props: { level, lessons: levelLessons(entries, level.id) } }));
+}
+
+const { level, lessons } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title={level.name}>
+  <nav aria-label="パンくずリスト" class="text-[.9rem] text-muted"><a href={`${base}/`}>トップ</a> › <span aria-current="page">{level.name}</span></nav>
+  <h1>{level.name}</h1>
+  <p>{level.boundary}</p>
+  <h2>レッスン一覧</h2>
+  <ol class="space-y-2">
+    {
+      lessons.map((entry) => (
+        <li>
+          <a href={`${base}/${entry.id}/`}>{entry.data.title}</a>
+          <br />
+          <span class="text-[.9rem] text-muted">{entry.data.goal}</span>
+        </li>
+      ))
+    }
+  </ol>
+</Layout>

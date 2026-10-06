@@ -1,21 +1,9 @@
 ---
-// ponytail: #11 でトップページを作るまでの仮のページ。<head> と枠はレッスンのページと重複していて、
-// ページが増えたら（#9）レイアウトにまとめる
-import '../styles/global.css';
+// ponytail: #11 でトップページを作るまでの仮のページ
+import Layout from '../layouts/Layout.astro';
 ---
 
-<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}/favicon.svg`} />
-    <title>ブラウザで学ぶ SQL</title>
-  </head>
-  <body>
-    <main class="mx-auto max-w-[860px] px-4 pt-6 pb-16">
-      <h1>ブラウザで学ぶ SQL</h1>
-      <p>準備中です。</p>
-    </main>
-  </body>
-</html>
+<Layout>
+  <h1>ブラウザで学ぶ SQL</h1>
+  <p>準備中です。</p>
+</Layout>
