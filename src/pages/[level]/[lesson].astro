@@ -48,8 +48,8 @@ const { Content } = await render(entry);
     <Content />
     {entry.data.exercises.length > 0 && <h2>演習</h2>}
     {
-      entry.data.exercises.map(({ prompt, answer, ordered, checkNames }, i) => (
-        <section class="exercise border-t border-line py-4 [&_.cm-scroller]:min-h-[5.5em]" data-exercise={JSON.stringify({ answer, ordered, checkNames })}>
+      entry.data.exercises.map(({ prompt, answer, hints, ordered, checkNames }, i) => (
+        <section class="exercise border-t border-line py-4 [&_.cm-scroller]:min-h-[5.5em]" data-exercise={JSON.stringify({ answer, hints, ordered, checkNames })}>
           <h3 class="mt-0 mb-1 text-[1.05rem]">演習 {i + 1}</h3>
           <p class="font-semibold whitespace-pre-line">{prompt}</p>
         </section>
