@@ -49,3 +49,16 @@ test('エラーのときは、メッセージ、SQLSTATE、位置、ヒントを
     },
   });
 });
+
+// 本番ビルドではクラス名が短縮されるので、例外の型ではなく code の有無で見分ける
+test('例外の型にかかわらず、code があれば SQL のエラー、なければ PGlite の失敗として返す', async () => {
+  const failing = (e: unknown) => ({ exec: () => Promise.reject(e) }) as unknown as PGlite;
+  expect(await run(failing({ message: 'column "x" does not exist', code: '42703', position: '8' }), seed, 'SELECT x;')).toEqual({
+    ok: false,
+    error: { message: 'column "x" does not exist', code: '42703', position: 8, hint: null },
+  });
+  expect(await run(failing(new Error('worker crashed')), seed, 'SELECT 1;')).toEqual({
+    ok: false,
+    error: { message: 'worker crashed', code: null, position: null, hint: null },
+  });
+});
