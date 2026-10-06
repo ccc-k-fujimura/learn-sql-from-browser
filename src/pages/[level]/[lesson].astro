@@ -1,66 +1,69 @@
 ---
 import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import { levelLessons } from '../../lessons';
 import { levels } from '../../levels';
-import '../../styles/global.css';
 
 export async function getStaticPaths() {
-  const lessons = await getCollection('lessons');
-  return lessons.map((entry) => {
-    const [level, lesson] = entry.id.split('/');
-    return { params: { level, lesson }, props: { entry } };
-  });
+  const entries = await getCollection('lessons');
+  return levels
+    .filter((l) => l.published)
+    .flatMap((level) => {
+      const lessons = levelLessons(entries, level.id);
+      return lessons.map((entry, i) => ({
+        params: { level: level.id, lesson: entry.id.split('/')[1] },
+        props: { entry, level, number: i + 1, prev: lessons[i - 1], next: lessons[i + 1] },
+      }));
+    });
 }
 
-const { entry } = Astro.props;
-const level = levels.find((l) => l.id === Astro.params.level)!;
+const { entry, level, number, prev, next } = Astro.props;
+const base = import.meta.env.BASE_URL;
 const schema = Object.fromEntries(Object.entries(level.tables).map(([table, columns]) => [table, columns.map((c) => c.name)]));
 const { Content } = await render(entry);
 ---
 
-<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}/favicon.svg`} />
-    <title>{entry.data.title} | ブラウザで学ぶ SQL</title>
-  </head>
-  <body>
-    <div id="db-banner" class="sticky top-0 z-10 bg-notice-bg px-4 py-1 text-[.9rem]" hidden>データベースを準備しています…</div>
-    <main class="mx-auto max-w-[860px] px-4 pt-6 pb-16" data-schema={JSON.stringify(schema)}>
-      <h1>{entry.data.title}</h1>
-      {
-        Object.entries(level.tables).map(([table, columns]) => (
-          <div class="overflow-x-auto">
-            <table>
-              <caption>{table} テーブルの列</caption>
-              <thead>
-                <tr><th>列名</th><th>意味</th><th>値の例</th></tr>
-              </thead>
-              <tbody>
-                {columns.map((c) => (
-                  <tr><td><code>{c.name}</code></td><td>{c.meaning}</td><td>{c.example}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))
-      }
-      <Content />
-      {entry.data.exercises.length > 0 && <h2>演習</h2>}
-      {
-        entry.data.exercises.map(({ prompt, answer, ordered, checkNames }, i) => (
-          <section class="exercise border-t border-line py-4 [&_.cm-scroller]:min-h-[5.5em]" data-exercise={JSON.stringify({ answer, ordered, checkNames })}>
-            <h3 class="mt-0 mb-1 text-[1.05rem]">演習 {i + 1}</h3>
-            <p class="font-semibold whitespace-pre-line">{prompt}</p>
-          </section>
-        ))
-      }
-    </main>
-    <script>
-      // PGlite とエディタは、例か演習があるページでだけ読み込む
-      if (document.querySelector('pre > code.language-sql, .exercise')) import('../../scripts/lesson');
-    </script>
-  </body>
-</html>
-
+<Layout title={entry.data.title}>
+  <div slot="banner" id="db-banner" class="sticky top-0 z-10 bg-notice-bg px-4 py-1 text-[.9rem]" hidden>データベースを準備しています…</div>
+  <div data-schema={JSON.stringify(schema)}>
+    <nav aria-label="パンくずリスト" class="text-[.9rem] text-muted"><a href={`${base}/`}>トップ</a> › <a href={`${base}/${level.id}/`}>{level.name}</a></nav>
+    <h1>{entry.data.title}</h1>
+    {
+      Object.entries(level.tables).map(([table, columns]) => (
+        <div class="overflow-x-auto">
+          <table>
+            <caption>{table} テーブルの列</caption>
+            <thead>
+              <tr><th>列名</th><th>意味</th><th>値の例</th></tr>
+            </thead>
+            <tbody>
+              {columns.map((c) => (
+                <tr><td><code>{c.name}</code></td><td>{c.meaning}</td><td>{c.example}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))
+    }
+    <Content />
+    {entry.data.exercises.length > 0 && <h2>演習</h2>}
+    {
+      entry.data.exercises.map(({ prompt, answer, ordered, checkNames }, i) => (
+        <section class="exercise border-t border-line py-4 [&_.cm-scroller]:min-h-[5.5em]" data-exercise={JSON.stringify({ answer, ordered, checkNames })}>
+          <h3 class="mt-0 mb-1 text-[1.05rem]">演習 {i + 1}</h3>
+          <p class="font-semibold whitespace-pre-line">{prompt}</p>
+        </section>
+      ))
+    }
+    {/* ponytail: 総まとめの「次」（修了のページへ）は #11 で足す */}
+    <nav aria-label="前後のレッスン" class="mt-6 grid grid-cols-[1fr_auto_1fr] gap-3 border-t border-line pt-4">
+      <div>{prev && <a href={`${base}/${prev.id}/`} rel="prev">← {number - 1}. {prev.data.title}</a>}</div>
+      <div class="whitespace-nowrap"><a href={`${base}/${level.id}/`}>レッスン一覧へ</a></div>
+      <div class="text-right">{next && <a href={`${base}/${next.id}/`} rel="next">{number + 1}. {next.data.title} →</a>}</div>
+    </nav>
+  </div>
+  <script>
+    // PGlite とエディタは、例か演習があるページでだけ読み込む
+    if (document.querySelector('pre > code.language-sql, .exercise')) import('../../scripts/lesson');
+  </script>
+</Layout>
