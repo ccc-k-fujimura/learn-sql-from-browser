@@ -18,6 +18,10 @@ const BY_CODE: Record<string, string> = {
   '22012': '0 で割ることはできません。',
 };
 
+// 学習者の SQL のエラーかどうかは、SQLSTATE の有無で決める（例外のクラス名は本番ビルドで短縮される）。
+// code がなければ、リセットの失敗のような PGlite の側の失敗で、学習者の間違いには数えない
+export const isSqlError = ({ code }: Pick<SqlError, 'code'>) => code !== null;
+
 // 42601 のうち、引用符の閉じ忘れだけは SQLSTATE が同じなので、メッセージで見分ける
 export function explainError({ code, message }: Pick<SqlError, 'code' | 'message'>): string {
   if (code === '42601' && message.includes('unterminated quoted string')) return UNTERMINATED_STRING;

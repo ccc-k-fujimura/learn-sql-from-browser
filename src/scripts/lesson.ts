@@ -3,7 +3,7 @@ import { setDiagnostics } from '@codemirror/lint';
 import { EditorView, basicSetup } from 'codemirror';
 import { ready, run } from '../db/client';
 import type { ResultTable, SqlError } from '../db/run';
-import { errorRange, explainError } from '../errors';
+import { errorRange, explainError, isSqlError } from '../errors';
 import { grade, verdictText, type GradeOptions } from '../grade';
 
 const schema: Record<string, string[]> = JSON.parse(document.querySelector<HTMLElement>('[data-schema]')!.dataset.schema!);
@@ -72,7 +72,7 @@ function markError(editor: EditorView, ran: string, error?: SqlError) {
 }
 
 // エディタと実行ボタンを作る。ボタンか Ctrl + Enter で SQL を実行し、エラーならその説明を出し、
-// エディタに波線を引いて onError を呼ぶ。
+// エディタに波線を引き、学習者の SQL のエラー（SQLSTATE がある）なら onError を呼ぶ。
 // 成功なら結果の表と SQL を onResult に渡し、返った要素を下に出す
 function createRunner(
   doc: string,
@@ -90,7 +90,7 @@ function createRunner(
       const res = await run(sql);
       markError(editor, sql, res.ok ? undefined : res.error);
       out.replaceChildren(...(res.ok ? await onResult(res.result, sql) : [renderError(res.error)]));
-      if (!res.ok) onError?.();
+      if (!res.ok && isSqlError(res.error)) onError?.();
     } finally {
       button.disabled = false;
     }

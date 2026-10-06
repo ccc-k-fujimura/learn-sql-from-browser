@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { expect, test } from 'vitest';
 import { run, type SqlError } from './db/run';
-import { errorRange, explainError } from './errors';
+import { errorRange, explainError, isSqlError } from './errors';
 
 const err = (code: string | null, message = ''): SqlError => ({ code, message, position: null, hint: null });
 const GENERIC = 'エラーが起きました';
@@ -29,6 +29,12 @@ test('専用の説明がない SQLSTATE と、SQLSTATE がないエラーには�
 test('42601 のうち、引用符の閉じ忘れだけを別の説明にする', () => {
   expect(explainError(err('42601', 'syntax error at end of input'))).not.toContain('閉じていません');
   expect(explainError(err('42703', 'unterminated quoted string'))).not.toContain('閉じていません');
+});
+
+test('学習者の SQL のエラーかどうかは、SQLSTATE の有無で決める', () => {
+  expect(isSqlError(err('42703'))).toBe(true);
+  expect(isSqlError(err('23505'))).toBe(true); // 専用の説明がなくても、SQL のエラーである
+  expect(isSqlError(err(null, 'RESET に失敗した'))).toBe(false);
 });
 
 test.each([
