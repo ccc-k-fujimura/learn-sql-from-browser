@@ -45,10 +45,19 @@ const { Content } = await render(entry);
         ))
       }
       <Content />
+      {entry.data.exercises.length > 0 && <h2>演習</h2>}
+      {
+        entry.data.exercises.map(({ prompt, answer, ordered, checkNames }, i) => (
+          <section class="exercise" data-exercise={JSON.stringify({ answer, ordered, checkNames })}>
+            <h3>演習 {i + 1}</h3>
+            <p class="prompt">{prompt}</p>
+          </section>
+        ))
+      }
     </main>
     <script>
-      // PGlite とエディタは、実行できる SQL があるページでだけ読み込む
-      if (document.querySelector('pre > code.language-sql')) import('../../scripts/lesson');
+      // PGlite とエディタは、例か演習があるページでだけ読み込む
+      if (document.querySelector('pre > code.language-sql, .exercise')) import('../../scripts/lesson');
     </script>
   </body>
 </html>
@@ -72,6 +81,14 @@ const { Content } = await render(entry);
   .count { color: #656d76; font-size: .9rem; margin: 4px 0; }
   .error { background: #fff5f5; border: 1px solid #ff8182; }
   .example { margin: 8px 0 16px; }
+  .exercise { border-top: 1px solid #d0d7de; padding: 16px 0; }
+  .exercise h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .exercise .cm-scroller { min-height: 5.5em; }
+  .prompt { font-weight: 600; white-space: pre-line; }
+  .muted { margin-left: 8px; color: #656d76; font-size: .9rem; }
+  .verdict { margin: 8px 0; padding: 6px 12px; border-radius: 4px; }
+  .verdict.ok { background: #dafbe1; color: #116329; }
+  .verdict.ng { background: #ffebe9; color: #a40e26; }
   .cm-editor { border: 1px solid #c8ccd1; border-radius: 4px; }
   .db-banner { position: sticky; top: 0; z-index: 10; padding: 4px 16px; background: #fff8c5; font-size: .9rem; }
 </style>
