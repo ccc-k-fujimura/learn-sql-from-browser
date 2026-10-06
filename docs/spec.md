@@ -102,6 +102,7 @@ PGlite は同時に 1 つの接続しか持てず、2 つのセッションで�
 | 部品 | 版 | 用途 |
 |---|---|---|
 | Astro | 7.3.2 | 静的サイトの生成（静的出力、UI フレームワークなし） |
+| tailwindcss、@tailwindcss/vite | 4.3.3 | 見た目をクラスで書く（配色は `@theme` で決める） |
 | codemirror | 6.0.2 | SQL エディタ |
 | @codemirror/lang-sql | 6.10.0 | SQL の色分けと補完（方言は `PostgreSQL`） |
 | @electric-sql/pglite | 0.5.8 | ブラウザ内の PostgreSQL 18.3 |
@@ -115,8 +116,19 @@ PGlite は同時に 1 つの接続しか持てず、2 つのセッションで�
 - TypeScript を 7 にしないのは、`@astrojs/check` 0.9.10 が TypeScript 5 と 6 にしか対応していないからである。
 - リンターとフォーマッターは入れない。開発者が 1 人のあいだは、型検査で足りる。
 - React などの UI フレームワークと MDX は使わない。画面の動きは Astro が束ねる素の TypeScript で書く。MDX は本文中の `<` と `{` のエスケープを要求し、比較演算子を説明するレッスンと相性が悪い。
+- 見た目は Tailwind CSS のクラスで書く。
+  `src/styles/global.css` に `@import "tailwindcss";`、配色の `@theme`、Markdown の本文の見た目を戻す `@layer base` を置き、全ページが読み込む。
+- Tailwind の preflight はブラウザ既定の見た目を消すので、クラスを書けない Markdown の本文の要素（段落、見出し、リスト、リンク、コード、表）は `@layer base` で整える。
+  `@tailwindcss/typography` は使わない。
+  独自の配色と文字の大きさを持っていて、配色に合わせて上書きする手間がかかるからである。
+- CodeMirror の外枠（`.cm-editor`）には、`EditorView.editorAttributes` でクラスを付ける。
+  内側の要素（`.cm-scroller` など）にはクラスを付けられないので、演習のエディタの高さは、演習の要素に `[&_.cm-scroller]:min-h-[5.5em]` を付けて整える。
+  エディタの中の書体は CodeMirror が `monospace` に決めていて、サイトの書体の指定は効かない。
 - `astro.config.mjs` には `site`（`https://ccc-k-fujimura.github.io`）、`base`（`/learn-sql-from-browser`）、`vite.optimizeDeps.exclude: ['@electric-sql/pglite']` を書く。公開 URL は `https://ccc-k-fujimura.github.io/learn-sql-from-browser/` になる。
-- 同じファイルに `vite.worker.format: 'es'` と `markdown.syntaxHighlight: false` も書く。前者は、PGlite が中で動的 import を使うので、Worker を ES モジュールとして出力するためである。後者は、`sql` のコードブロックをエディタに置き換えるのでビルド時の色分けが要らず、切ると `<pre><code class="language-sql">` という探しやすい形で出力されるからである。
+- 同じファイルに `vite.plugins: [tailwindcss()]`、`vite.worker.format: 'es'`、`markdown.syntaxHighlight: false` も書く。
+  1 つ目は、Tailwind CSS を Vite のプラグインとして動かすためである。
+  2 つ目は、PGlite が中で動的 import を使うので、Worker を ES モジュールとして出力するためである。
+  3 つ目は、`sql` のコードブロックをエディタに置き換えるのでビルド時の色分けが要らず、切ると `<pre><code class="language-sql">` という探しやすい形で出力されるからである。
 - 本文中のリンクは相対パスで書くか、テンプレートで `base` を付けて生成する。絶対パスのリンクには `base` が付かず、GitHub Pages で切れる。
 - 公開は GitHub Actions で行う。`withastro/action@v6` がビルドと成果物のアップロードを、`actions/deploy-pages@v5` が公開を行う。権限に `pages: write` と `id-token: write` を与え、リポジトリの Pages の設定で Source に GitHub Actions を選ぶ。
 - ワークフロー（`.github/workflows/ci.yml`）は、型検査とテスト、ビルド、公開の順に進む。PR では公開の手前のビルドまでを行い、main への push でだけ公開する。
@@ -229,6 +241,56 @@ SQL の文面は見ない。
 試作は [prototypes/site-skeleton/index.html](../.scratch/sql-learning-site/prototypes/site-skeleton/index.html) にある（案 B が採用した構成である）。
 
 出典：[サイトの骨組み](../.scratch/sql-learning-site/issues/08-site-skeleton-prototype.md)
+
+## 配色
+
+色は役割ごとに名前を付け、`src/styles/global.css` の `@theme` だけで決める。
+`--color-*: initial;` で Tailwind の既定の色（`red-500` など）を消してあるので、ここにない色はクラスで書けない。
+値は GitHub の配色に近い系統で、文字と背景の組み合わせは WCAG 2.2 の AA（通常の文字で 4.5:1 以上）を満たす。
+
+| 役割 | 名前 | 値 | コントラスト比 |
+|---|---|---|---|
+| 本文の文字 | `ink` | `#1f2328` | 背景に対して 15.80:1、表の見出しの背景に対して 14.84:1 |
+| 補足の文字（行数、操作の説明） | `muted` | `#656d76` | 背景に対して 5.25:1 |
+| 背景 | `page` | `#ffffff` | |
+| 表の見出しとコードの背景 | `subtle` | `#f6f8fa` | |
+| 表と区切りの枠線 | `line` | `#d0d7de` | |
+| ボタンとエディタの枠線 | `control` | `#c8ccd1` | |
+| 強調色（リンク、favicon） | `accent` | `#1f6feb` | 背景に対して 4.63:1、表の見出しの背景に対して 4.35:1 |
+| 結果の表の NULL | `null` | `#656d76` | 背景に対して 5.25:1、表の見出しの背景に対して 4.93:1、余分な行の背景に対して 4.58:1、足りない行の背景に対して 4.87:1 |
+| 正解の帯 | `correct`（文字）、`correct-bg`（背景） | `#116329`、`#dafbe1` | 6.64:1 |
+| 間違いの帯 | `wrong`（文字）、`wrong-bg`（背景） | `#a40e26`、`#ffebe9` | 6.86:1 |
+| データベースを準備中の帯 | `notice-bg` | `#fff8c5` | 本文の文字は 14.66:1 |
+| SQL のエラー | `error-bg`（背景）、`error-line`（枠線） | `#fff5f5`、`#ff8182` | 本文の文字は 14.77:1 |
+
+次の役割は、使うチケットが `@theme` に足す。
+値は上の表と同じ系統から選び、コントラスト比を確かめてある。
+
+| 役割 | 名前 | 値 | コントラスト比 | 足すチケット |
+|---|---|---|---|---|
+| 余分な行の背景 | `row-extra-bg` | `#ffebe9` | 本文の文字は 13.78:1 | #5 |
+| 足りない行の背景 | `row-missing-bg` | `#fff8c5` | 本文の文字は 14.66:1 | #5 |
+| 進捗の印（未着手） | `progress-todo` | `#656d76` | 背景に対して 5.25:1 | #10 |
+| 進捗の印（途中） | `progress-doing` | `#9a6700` | 背景に対して 4.87:1 | #10 |
+| 進捗の印（修了） | `progress-done` | `#116329` | 背景に対して 7.39:1 | #10 |
+| 進捗バー | `progress-bar`（済んだ部分）、`progress-track`（残りの部分） | `#1f6feb`、`#d0d7de` | 済んだ部分と残りの部分で 3.19:1（図形に求められる 3:1 以上） | #10 |
+| 準備中のレベルのカード | `soon-bg`（背景）、文字は `muted` | `#f6f8fa` | 文字は 4.93:1 | #11 |
+
+- 色の値をテンプレートやスクリプトに直接書かない。
+  新しい色が要るときは、役割の名前を付けて `@theme` とこの節の表に足す。
+- `accent` は、いまのページにリンクがなくても `@theme` に置く。
+  Markdown の本文のリンクの色として、`@layer base` の `a` が使っているからである。
+- favicon（`public/favicon.svg`）には、`accent` と同じ `#1f6feb` を直接書いてある。
+  favicon はページの CSS を読まないので、`accent` を変えるときは favicon も直す。
+- リンクは、表の見出しやコードの背景（`subtle`）の上に置かない。
+  `accent` は `subtle` の上で 4.35:1 になり、AA に届かない。
+- 正解と間違い、余分な行と足りない行、進捗の印は、色だけでなく文字か記号でも見分けられるようにする。
+  色の見え方には個人差があるからである。
+  判定の帯は、判定の文で見分けられる。
+- 進捗バーには、修了数を文字で添える。
+  残りの部分（`progress-track`）は背景に対して 1.45:1 で、バーの全体の長さを色だけでは読み取りにくい。
+- ダークモードには対応しない。
+  エディタ（CodeMirror）のテーマも切り替える必要があり、入門編の範囲を超える。
 
 ## レッスンファイルの書式
 

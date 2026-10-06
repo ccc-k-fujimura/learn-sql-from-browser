@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* 配色は役割ごとに名前を付けてここだけで決める。値とコントラスト比は docs/spec.md の「配色」の節にある。
+   Tailwind の既定の色（red-500 など）は消し、ここにない色をクラスで書けないようにする */
+@theme {
+  --color-*: initial;
+  --color-ink: #1f2328; /* 本文の文字 */
+  --color-muted: #656d76; /* 補足の文字 */
+  --color-page: #ffffff; /* 背景 */
+  --color-subtle: #f6f8fa; /* 表の見出しとコードの背景 */
+  --color-line: #d0d7de; /* 表と区切りの枠線 */
+  --color-control: #c8ccd1; /* ボタンとエディタの枠線 */
+  --color-accent: #1f6feb; /* 強調色（リンク、favicon） */
+  --color-null: #656d76; /* 結果の表の NULL */
+  --color-correct: #116329; /* 正解の帯の文字 */
+  --color-correct-bg: #dafbe1;
+  --color-wrong: #a40e26; /* 間違いの帯の文字 */
+  --color-wrong-bg: #ffebe9;
+  --color-notice-bg: #fff8c5; /* データベースを準備中の帯 */
+  --color-error-bg: #fff5f5; /* SQL のエラー */
+  --color-error-line: #ff8182;
+
+  --font-sans: system-ui, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+  --font-mono: ui-monospace, Consolas, "BIZ UDGothic", monospace;
+}
+
+/* preflight が消す見た目を戻す。Markdown の本文にはクラスを書けないので、要素に付ける。
+   書体は preflight が --font-sans と --font-mono から付ける */
+@layer base {
+  body { background: var(--color-page); color: var(--color-ink); line-height: 1.7; }
+  h1, h2, h3 { font-weight: 700; }
+  h1 { font-size: 1.6rem; margin: 0.67em 0; }
+  h2 { font-size: 1.5em; margin: 0.83em 0; }
+  h3 { font-size: 1.17em; margin: 1em 0; }
+  p, pre, ul, ol { margin: 1em 0; }
+  ul, ol { padding-left: 40px; }
+  ul { list-style: disc; }
+  ol { list-style: decimal; }
+  a { color: var(--color-accent); text-decoration: underline; }
+  code, pre { font-size: 15px; }
+  pre { background: var(--color-subtle); padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
+  table { font-size: 0.92rem; }
+  caption { text-align: left; font-weight: 600; }
+  th, td { border: 1px solid var(--color-line); padding: 2px 10px; text-align: left; }
+  th { background: var(--color-subtle); }
+}

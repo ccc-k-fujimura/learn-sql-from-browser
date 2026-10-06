@@ -22,22 +22,25 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLEle
 }
 
 function renderTable({ fields, rows }: ResultTable): Node {
-  return h('div', { className: 'result' },
+  return h('div', { className: 'overflow-x-auto [&_td]:whitespace-nowrap' },
     h('table', {},
       h('thead', {}, h('tr', {}, ...fields.map((f) => h('th', {}, f.name)))),
       h('tbody', {}, ...rows.map((row) =>
-        h('tr', {}, ...row.map((v) => h('td', {}, v === null ? h('span', { className: 'null' }, 'NULL') : String(v))))))),
-    h('p', { className: 'count' }, `${rows.length} 行`));
+        h('tr', {}, ...row.map((v) => h('td', {}, v === null ? h('span', { className: 'text-null italic' }, 'NULL') : String(v))))))),
+    h('p', { className: 'my-1 text-[.9rem] text-muted' }, `${rows.length} 行`));
 }
 
 // ponytail: 英語のメッセージだけ出す。日本語の説明と波線は #6 で足す
-const renderError = (error: SqlError) => h('pre', { className: 'error' }, error.message);
+const renderError = (error: SqlError) => h('pre', { className: 'border border-error-line bg-error-bg' }, error.message);
 
 // エディタと実行ボタンを作る。ボタンか Ctrl + Enter で SQL を実行し、エラーならその表示を、
 // 成功なら結果の表を onResult に渡して返った要素を、下に出す
 function createRunner(doc: string, label: string, onResult: (result: ResultTable | null) => Node[] | Promise<Node[]>) {
   const out = h('div');
-  const button = h('button', { type: 'button' }, label);
+  const button = h('button', {
+    type: 'button',
+    className: 'my-2 cursor-pointer rounded border border-control bg-page px-3.5 py-1 disabled:cursor-default disabled:opacity-50',
+  }, label);
   const go = async () => {
     if (button.disabled) return;
     button.disabled = true;
@@ -63,6 +66,7 @@ function createRunner(doc: string, label: string, onResult: (result: ResultTable
       }),
       basicSetup,
       sql({ dialect: PostgreSQL, schema, defaultTable, upperCaseKeywords: true }),
+      EditorView.editorAttributes.of({ class: 'rounded border border-control text-[15px]' }),
     ],
   });
   return { editor: editor.dom, button, out };
@@ -73,7 +77,7 @@ for (const code of document.querySelectorAll('pre > code.language-sql')) {
   const { editor, button, out } = createRunner(code.textContent!.trimEnd(), '実行', (result) => [
     result ? renderTable(result) : h('p', {}, '結果の表がありません。'),
   ]);
-  code.parentElement!.replaceWith(h('div', { className: 'example' }, editor, button, out));
+  code.parentElement!.replaceWith(h('div', { className: 'mt-2 mb-4' }, editor, button, out));
 }
 
 // 演習は、模範解答をその場で実行した期待結果と比べて採点する。期待結果の表は見せない
@@ -88,9 +92,9 @@ for (const section of document.querySelectorAll<HTMLElement>('.exercise')) {
     });
     const verdict = grade(await expected, result, options);
     return [
-      h('p', { className: verdict.ok ? 'verdict ok' : 'verdict ng' }, verdictText(verdict)),
+      h('p', { className: `my-2 rounded px-3 py-1.5 ${verdict.ok ? 'bg-correct-bg text-correct' : 'bg-wrong-bg text-wrong'}` }, verdictText(verdict)),
       ...(result ? [renderTable(result)] : []),
     ];
   });
-  section.append(editor, button, h('span', { className: 'muted' }, 'Ctrl + Enter でも実行できます'), out);
+  section.append(editor, button, h('span', { className: 'ml-2 text-[.9rem] text-muted' }, 'Ctrl + Enter でも実行できます'), out);
 }
