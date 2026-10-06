@@ -105,6 +105,7 @@ PGlite は同時に 1 つの接続しか持てず、2 つのセッションで�
 | tailwindcss、@tailwindcss/vite | 4.3.3 | 見た目をクラスで書く（配色は `@theme` で決める） |
 | codemirror | 6.0.2 | SQL エディタ |
 | @codemirror/lang-sql | 6.10.0 | SQL の色分けと補完（方言は `PostgreSQL`） |
+| @codemirror/lint | 6.9.7 | エラーの位置の波線（`setDiagnostics`）。`codemirror` が引く版と同じにして、二重に読み込まない |
 | @electric-sql/pglite | 0.5.8 | ブラウザ内の PostgreSQL 18.3 |
 | Vitest | 5.0.0 | 採点ロジックと模範解答の自動検査のテスト（設定は Astro の `getViteConfig` で共有する） |
 | @astrojs/check、TypeScript | 0.9.10、6.0.3 | 型検査（`astro check`） |
@@ -261,7 +262,7 @@ SQL の文面は見ない。
 | 正解の帯 | `correct`（文字）、`correct-bg`（背景） | `#116329`、`#dafbe1` | 6.64:1 |
 | 間違いの帯 | `wrong`（文字）、`wrong-bg`（背景） | `#a40e26`、`#ffebe9` | 6.86:1 |
 | データベースを準備中の帯 | `notice-bg` | `#fff8c5` | 本文の文字は 14.66:1 |
-| SQL のエラー | `error-bg`（背景）、`error-line`（枠線） | `#fff5f5`、`#ff8182` | 本文の文字は 14.77:1 |
+| SQL のエラー | `error-bg`（背景）、`error-line`（枠線） | `#fff5f5`、`#ff8182` | 本文の文字は 14.77:1、補足の文字（`muted`、英語のメッセージの見出し）は 4.90:1 |
 | 余分な行の背景 | `row-extra-bg` | `#ffebe9` | 本文の文字は 13.78:1、「余分」の文字（`wrong`）は 6.86:1 |
 | 足りない行の背景 | `row-missing-bg` | `#fff8c5` | 本文の文字は 14.66:1 |
 

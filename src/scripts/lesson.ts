@@ -1,7 +1,9 @@
 import { PostgreSQL, sql } from '@codemirror/lang-sql';
+import { setDiagnostics } from '@codemirror/lint';
 import { EditorView, basicSetup } from 'codemirror';
 import { ready, run } from '../db/client';
 import type { ResultTable, SqlError } from '../db/run';
+import { errorRange, explainError } from '../errors';
 import { grade, verdictText, type GradeOptions } from '../grade';
 
 const schema: Record<string, string[]> = JSON.parse(document.querySelector<HTMLElement>('[data-schema]')!.dataset.schema!);
@@ -53,10 +55,24 @@ function renderHints(hints: string[]): Node[] {
   return [list, next];
 }
 
-// ponytail: 英語のメッセージだけ出す。日本語の説明と波線は #6 で足す
-const renderError = (error: SqlError) => h('pre', { className: 'border border-error-line bg-error-bg' }, error.message);
+// 日本語の説明を先に出し、英語の元のメッセージは折りたたむ
+const renderError = (error: SqlError) =>
+  h('div', { className: 'my-2 rounded border border-error-line bg-error-bg px-3 py-2' },
+    h('p', { className: 'm-0' }, explainError(error)),
+    h('details', { className: 'mt-2' },
+      h('summary', { className: 'cursor-pointer text-muted' }, '英語の元のメッセージ'),
+      h('pre', { className: 'mb-0' }, error.message)));
 
-// エディタと実行ボタンを作る。ボタンか Ctrl + Enter で SQL を実行し、エラーならその表示を出して onError を呼ぶ。
+// エラーの位置に波線を引く（エラーでなければ消す）。待っているあいだに SQL が書き換わっていたら、位置がずれるので引かない
+function markError(editor: EditorView, ran: string, error?: SqlError) {
+  const marks = error?.position && editor.state.doc.toString() === ran
+    ? [{ ...errorRange(ran, error.position), severity: 'error' as const, message: explainError(error) }]
+    : [];
+  editor.dispatch(setDiagnostics(editor.state, marks));
+}
+
+// エディタと実行ボタンを作る。ボタンか Ctrl + Enter で SQL を実行し、エラーならその説明を出し、
+// エディタに波線を引いて onError を呼ぶ。
 // 成功なら結果の表と SQL を onResult に渡し、返った要素を下に出す
 function createRunner(
   doc: string,
@@ -72,6 +88,7 @@ function createRunner(
     try {
       const sql = editor.state.doc.toString();
       const res = await run(sql);
+      markError(editor, sql, res.ok ? undefined : res.error);
       out.replaceChildren(...(res.ok ? await onResult(res.result, sql) : [renderError(res.error)]));
       if (!res.ok) onError?.();
     } finally {
