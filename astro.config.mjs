@@ -1,4 +1,5 @@
 // @ts-check
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
@@ -7,6 +8,7 @@ export default defineConfig({
   // sql のコードブロックはエディタに置き換えるので、ビルド時の色分けは要らない
   markdown: { syntaxHighlight: false },
   vite: {
+    plugins: [tailwindcss()],
     // PGlite は WASM とデータファイルを自分のモジュールの URL から読むので、事前バンドルから外す
     optimizeDeps: { exclude: ['@electric-sql/pglite'] },
     // PGlite が中で動的 import を使うので、Worker を ES モジュールとして出力する
