@@ -5,6 +5,11 @@ export type ResultTable = { fields: { name: string; type: number }[]; rows: unkn
 export type SqlError = { message: string; code: string | null; position: number | null; hint: string | null };
 export type RunResult = { ok: true; result: ResultTable | null } | { ok: false; error: SqlError };
 
+/** メインスレッドから Worker へ送る実行の依頼 */
+export type WorkerRequest = { id: number; sql: string };
+/** Worker から返る知らせ。起動の結果と、実行の結果（id で依頼と対応づける） */
+export type WorkerMessage = { type: 'ready' } | { type: 'fatal'; message: string } | { type: 'result'; id: number; result: RunResult };
+
 // 先頭の ROLLBACK は、学習者が BEGIN を残した場合に備える。RESET ALL は SET search_path などを戻し、
 // DISCARD TEMP は books を隠す一時テーブルを消す（DISCARD ALL は複数の文の中で実行できない）。
 // ponytail: public 以外のスキーマは残る。SELECT だけの入門では困らない
