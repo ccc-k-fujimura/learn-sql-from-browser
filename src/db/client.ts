@@ -65,13 +65,15 @@ export function createDb(spawn: () => Worker, onState: (state: DbState) => void)
   async function run(sql: string, onSlow?: () => void): Promise<RunResult | Stopped> {
     await ready;
     const id = ++seq;
+    const result = new Promise<RunResult | Stopped>((resolve) => {
+      pending.set(id, resolve);
+      worker.postMessage({ id, sql } satisfies WorkerRequest);
+    });
+    // 時間は、依頼を Worker に渡してから数える
     const slow = onSlow && setTimeout(onSlow, SLOW_MS);
     const limit = setTimeout(() => restart(id), LIMIT_MS);
     try {
-      return await new Promise((resolve) => {
-        pending.set(id, resolve);
-        worker.postMessage({ id, sql } satisfies WorkerRequest);
-      });
+      return await result;
     } finally {
       clearTimeout(slow);
       clearTimeout(limit);
