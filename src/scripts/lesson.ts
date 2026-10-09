@@ -59,7 +59,7 @@ function renderHints(hints: string[]): Node[] {
 }
 
 const renderStopped = ({ stopped }: Stopped) =>
-  h('p', { className: 'my-2' }, stopped === 'auto' ? '10 秒たっても終わらなかったので、実行を止めました。' : '実行を止めました。');
+  h('p', { className: 'my-2' }, stopped === 'timedOut' ? '10 秒たっても終わらなかったので、実行を止めました。' : '実行を止めました。');
 
 // 日本語の説明を先に出し、英語の元のメッセージは折りたたむ
 const renderError = (error: SqlError) =>
@@ -141,22 +141,23 @@ for (const code of document.querySelectorAll('pre > code.language-sql')) {
 // 演習は、模範解答をその場で実行した期待結果と比べて採点する。期待結果の表は見せない
 for (const section of document.querySelectorAll<HTMLElement>('.exercise')) {
   const { answer, hints, ...options }: { answer: string; hints: string[] } & GradeOptions = JSON.parse(section.dataset.exercise!);
-  let expected: Promise<RunResult | Stopped> | undefined;
+  let answerRun: Promise<RunResult | Stopped> | undefined;
   // 模範解答は、答え合わせで 1 回間違えるまで開けない。SQL のエラーも間違いに数え、空のままの実行は数えない
   const answerBox = h('details', { hidden: true },
     h('summary', { className: 'cursor-pointer' }, '模範解答を見る'),
     h('pre', {}, answer.trimEnd()));
   const unlockAnswer = () => (answerBox.hidden = false);
   const { editor, controls, out } = createRunner('', '実行して答え合わせ', async (result, sql) => {
-    // 期待結果は最初の答え合わせで 1 回だけ作って使い回す。ほかの実行の「止める」に巻き込まれて止まったときは、次の答え合わせで作り直す
-    const expectedRun = await (expected ??= db.run(answer));
-    if ('stopped' in expectedRun) {
-      expected = undefined;
-      return [renderStopped(expectedRun)];
+    // 期待結果は最初の答え合わせで 1 回だけ、模範解答を実行して作り、使い回す。
+    // ほかの実行の「止める」に巻き込まれて止まったときは、次の答え合わせで作り直す
+    const answerResult = await (answerRun ??= db.run(answer));
+    if ('stopped' in answerResult) {
+      answerRun = undefined;
+      return [renderStopped(answerResult)];
     }
     // ponytail: 模範解答がエラーにも結果の表なしにもならないことは、#8 の自動検査で確かめる
-    if (!expectedRun.ok || !expectedRun.result) throw new Error(`模範解答を実行できません：${answer}`);
-    const expectedTable = expectedRun.result;
+    if (!answerResult.ok || !answerResult.result) throw new Error(`模範解答を実行できません：${answer}`);
+    const expectedTable = answerResult.result;
     const verdict = grade(expectedTable, result, options);
     if (!verdict.ok && sql.trim()) unlockAnswer();
     const diff = !verdict.ok && verdict.kind === 'rows' ? verdict : undefined;

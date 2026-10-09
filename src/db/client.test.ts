@@ -101,12 +101,12 @@ test('1 秒たっても返事がなければ onSlow を呼ぶ。早く終われ�
   await slow;
 });
 
-test('stop すると、Worker を捨てて作り直し、待っていた実行は manual で返る', async () => {
+test('stop すると、Worker を捨てて作り直し、待っていた実行は cancelled で返る', async () => {
   const { db, states, worker } = ready();
   const res = db.run('SELECT count(*) FROM generate_series(1, 1e12);');
   await tick();
   db.stop();
-  expect(await res).toEqual({ ok: false, stopped: 'manual' });
+  expect(await res).toEqual({ ok: false, stopped: 'cancelled' });
   expect(worker(0).terminated).toBe(true);
   expect(FakeWorker.all).toHaveLength(2);
   expect(states).toEqual(['loading', 'ready', 'restarting']);
@@ -150,19 +150,19 @@ test('10 秒たっても返事がなければ、自動で止める', async () =>
   await tick(9999);
   expect(worker().terminated).toBe(false);
   await tick(1);
-  expect(await res).toEqual({ ok: false, stopped: 'auto' });
+  expect(await res).toEqual({ ok: false, stopped: 'timedOut' });
   expect(worker(0).terminated).toBe(true);
   expect(FakeWorker.all).toHaveLength(2);
 });
 
-test('前に詰まった実行の後ろに並んだ実行は、まとめて止まる。時間切れと書くのは、時間切れになった実行だけ', async () => {
+test('前に詰まった実行の後ろに並んだ実行は、まとめて止まる。timedOut になるのは、時間切れになった実行だけ', async () => {
   const { db } = ready();
   const stuck = db.run('SELECT 1;');
   await tick(100);
   const queued = db.run('SELECT 2;');
   await tick(9900); // stuck が 10 秒に達する。queued は 9.9 秒
-  expect(await stuck).toEqual({ ok: false, stopped: 'auto' });
-  expect(await queued).toEqual({ ok: false, stopped: 'manual' });
+  expect(await stuck).toEqual({ ok: false, stopped: 'timedOut' });
+  expect(await queued).toEqual({ ok: false, stopped: 'cancelled' });
   await tick(60_000);
   expect(FakeWorker.all).toHaveLength(2); // queued のタイマーが、作り直した Worker を捨てない
 });

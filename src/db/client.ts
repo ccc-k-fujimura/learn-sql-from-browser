@@ -1,7 +1,7 @@
 import type { RunResult, WorkerMessage, WorkerRequest } from './run';
 
-/** 実行を止めたときに、実行の結果の代わりに返す。auto は 10 秒の時間切れになった実行で、manual はそれ以外（止める操作と、その巻き添え） */
-export type Stopped = { ok: false; stopped: 'manual' | 'auto' };
+/** 実行を止めたときに、実行の結果の代わりに返す。timedOut は自分が 10 秒の時間切れになった実行で、cancelled はそれ以外（止める操作と、ほかの実行を止めた巻き添え） */
+export type Stopped = { ok: false; stopped: 'timedOut' | 'cancelled' };
 export type DbState = 'loading' | 'ready' | 'restarting' | 'fatal';
 
 // 実行が 1 秒を超えたら止められるようにし、10 秒たったら自動で止める
@@ -27,15 +27,15 @@ export function createDb(spawn: () => Worker, onState: (state: DbState) => void)
 
   function start(initial: 'loading' | 'restarting') {
     setState(initial);
-    const w = (worker = spawn());
+    worker = spawn();
     ready = new Promise<void>((resolve, reject) => {
       const fail = (message: string) => {
         setState('fatal');
         reject(new Error(message));
       };
       // 起動したあとに落ちたときは何もしない。待っている実行は、10 秒の時間切れで止まり、Worker が作り直される
-      w.onerror = (e) => state !== 'ready' && fail(e.message);
-      w.onmessage = ({ data }: MessageEvent<WorkerMessage>) => {
+      worker.onerror = (e) => state !== 'ready' && fail(e.message);
+      worker.onmessage = ({ data }: MessageEvent<WorkerMessage>) => {
         if (data.type === 'ready') {
           setState('ready');
           resolve();
@@ -51,12 +51,12 @@ export function createDb(spawn: () => Worker, onState: (state: DbState) => void)
   }
   start('loading');
 
-  // Worker を捨てて作り直す。待っている実行はすべて止める。timedOut の実行だけは、時間切れとして返す。
+  // Worker を捨てて作り直す。待っている実行はすべて止める。timedOutId の実行だけは、時間切れとして返す。
   // 起動や作り直しの途中では何もしない（捨てた Worker の起動を待つ実行を作らないため）
-  function restart(timedOut?: number) {
+  function restart(timedOutId?: number) {
     if (state !== 'ready') return;
     worker.terminate();
-    for (const [id, resolve] of pending) resolve({ ok: false, stopped: id === timedOut ? 'auto' : 'manual' });
+    for (const [id, resolve] of pending) resolve({ ok: false, stopped: id === timedOutId ? 'timedOut' : 'cancelled' });
     pending.clear();
     start('restarting');
   }
