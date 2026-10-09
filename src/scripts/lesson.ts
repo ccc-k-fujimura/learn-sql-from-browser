@@ -1,8 +1,8 @@
 import { PostgreSQL, sql } from '@codemirror/lang-sql';
 import { setDiagnostics } from '@codemirror/lint';
 import { EditorView, basicSetup } from 'codemirror';
-import { ready, run } from '../db/client';
-import type { ResultTable, SqlError } from '../db/run';
+import { createDb, type Stopped } from '../db/client';
+import type { ResultTable, RunResult, SqlError } from '../db/run';
 import { errorRange, explainError, isSqlError } from '../errors';
 import { grade, verdictText, type GradeOptions } from '../grade';
 
@@ -10,11 +10,14 @@ const schema: Record<string, string[]> = JSON.parse(document.querySelector<HTMLE
 // ponytail: 最初のテーブルの列を「books.」なしで補完する。テーブルが 1 つの入門向けで、増えたら見直す
 const defaultTable = Object.keys(schema)[0];
 
+// 起動中と、実行を止めたあとの作り直し中は、帯で知らせる
 const banner = document.getElementById('db-banner')!;
-banner.hidden = false;
-ready.then(
-  () => (banner.hidden = true),
-  () => (banner.textContent = 'データベースを起動できませんでした。ページを開き直してください。'),
+const db = createDb(
+  () => new Worker(new URL('../db/worker.ts', import.meta.url), { type: 'module' }),
+  (state) => {
+    banner.hidden = state === 'ready';
+    banner.textContent = state === 'fatal' ? 'データベースを起動できませんでした。ページを開き直してください。' : 'データベースを準備しています…';
+  },
 );
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...children: (Node | string)[]) {
@@ -55,6 +58,9 @@ function renderHints(hints: string[]): Node[] {
   return [list, next];
 }
 
+const renderStopped = ({ stopped }: Stopped) =>
+  h('p', { className: 'my-2' }, stopped === 'timedOut' ? '10 秒たっても終わらなかったので、実行を止めました。' : '実行を止めました。');
+
 // 日本語の説明を先に出し、英語の元のメッセージは折りたたむ
 const renderError = (error: SqlError) =>
   h('div', { className: 'my-2 rounded border border-error-line bg-error-bg px-3 py-2' },
@@ -73,6 +79,7 @@ function markError(editor: EditorView, ran: string, error?: SqlError) {
 
 // エディタと実行ボタンを作る。ボタンか Ctrl + Enter で SQL を実行し、エラーならその説明を出し、
 // エディタに波線を引き、学習者の SQL のエラー（SQLSTATE がある）なら onError を呼ぶ。
+// 1 秒たっても終わらなければ、ボタンの横に「止める」を出す。止めたときは onResult も onError も呼ばない。
 // 成功なら結果の表と SQL を onResult に渡し、返った要素を下に出す
 function createRunner(
   doc: string,
@@ -82,12 +89,19 @@ function createRunner(
 ) {
   const out = h('div');
   const button = h('button', { type: 'button', className: buttonClass }, label);
+  const stop = h('button', { type: 'button', className: buttonClass, onclick: () => db.stop() }, '止める');
+  const slowNotice = h('span', { role: 'status', className: 'ml-2 text-[.9rem] text-muted' });
   const go = async () => {
     if (button.disabled) return;
     button.disabled = true;
     try {
       const sql = editor.state.doc.toString();
-      const res = await run(sql);
+      const res = await db.run(sql, () => slowNotice.replaceChildren('時間がかかっています… ', stop));
+      slowNotice.replaceChildren();
+      if ('stopped' in res) {
+        markError(editor, sql);
+        return out.replaceChildren(renderStopped(res));
+      }
       markError(editor, sql, res.ok ? undefined : res.error);
       out.replaceChildren(...(res.ok ? await onResult(res.result, sql) : [renderError(res.error)]));
       if (!res.ok && isSqlError(res.error)) onError?.();
@@ -113,33 +127,37 @@ function createRunner(
       EditorView.editorAttributes.of({ class: 'rounded border border-control text-[15px]' }),
     ],
   });
-  return { editor: editor.dom, button, out };
+  return { editor: editor.dom, controls: h('span', {}, button, slowNotice), out };
 }
 
 // 本文の sql のコードブロックを、採点しない例に置き換える
 for (const code of document.querySelectorAll('pre > code.language-sql')) {
-  const { editor, button, out } = createRunner(code.textContent!.trimEnd(), '実行', (result) => [
+  const { editor, controls, out } = createRunner(code.textContent!.trimEnd(), '実行', (result) => [
     result ? renderTable(result) : h('p', {}, '結果の表がありません。'),
   ]);
-  code.parentElement!.replaceWith(h('div', { className: 'mt-2 mb-4' }, editor, button, out));
+  code.parentElement!.replaceWith(h('div', { className: 'mt-2 mb-4' }, editor, controls, out));
 }
 
 // 演習は、模範解答をその場で実行した期待結果と比べて採点する。期待結果の表は見せない
 for (const section of document.querySelectorAll<HTMLElement>('.exercise')) {
   const { answer, hints, ...options }: { answer: string; hints: string[] } & GradeOptions = JSON.parse(section.dataset.exercise!);
-  let expected: Promise<ResultTable> | undefined;
+  let answerRun: Promise<RunResult | Stopped> | undefined;
   // 模範解答は、答え合わせで 1 回間違えるまで開けない。SQL のエラーも間違いに数え、空のままの実行は数えない
   const answerBox = h('details', { hidden: true },
     h('summary', { className: 'cursor-pointer' }, '模範解答を見る'),
     h('pre', {}, answer.trimEnd()));
   const unlockAnswer = () => (answerBox.hidden = false);
-  const { editor, button, out } = createRunner('', '実行して答え合わせ', async (result, sql) => {
+  const { editor, controls, out } = createRunner('', '実行して答え合わせ', async (result, sql) => {
+    // 期待結果は最初の答え合わせで 1 回だけ、模範解答を実行して作り、使い回す。
+    // ほかの実行の「止める」に巻き込まれて止まったときは、次の答え合わせで作り直す
+    const answerResult = await (answerRun ??= db.run(answer));
+    if ('stopped' in answerResult) {
+      answerRun = undefined;
+      return [renderStopped(answerResult)];
+    }
     // ponytail: 模範解答がエラーにも結果の表なしにもならないことは、#8 の自動検査で確かめる
-    expected ??= run(answer).then((r) => {
-      if (r.ok && r.result) return r.result;
-      throw new Error(`模範解答を実行できません：${answer}`);
-    });
-    const expectedTable = await expected;
+    if (!answerResult.ok || !answerResult.result) throw new Error(`模範解答を実行できません：${answer}`);
+    const expectedTable = answerResult.result;
     const verdict = grade(expectedTable, result, options);
     if (!verdict.ok && sql.trim()) unlockAnswer();
     const diff = !verdict.ok && verdict.kind === 'rows' ? verdict : undefined;
@@ -152,6 +170,6 @@ for (const section of document.querySelectorAll<HTMLElement>('.exercise')) {
         : []),
     ];
   }, unlockAnswer);
-  section.append(editor, button, h('span', { className: 'ml-2 text-[.9rem] text-muted' }, 'Ctrl + Enter でも実行できます'), out,
+  section.append(editor, controls, h('span', { className: 'ml-2 text-[.9rem] text-muted' }, 'Ctrl + Enter でも実行できます'), out,
     ...renderHints(hints), answerBox);
 }
