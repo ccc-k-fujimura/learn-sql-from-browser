@@ -25,7 +25,7 @@ const { Content } = await render(entry);
 
 <Layout title={entry.data.title}>
   <div slot="banner" id="db-banner" class="sticky top-0 z-10 bg-notice-bg px-4 py-1 text-[.9rem]" hidden>データベースを準備しています…</div>
-  <div data-schema={JSON.stringify(schema)}>
+  <div data-schema={JSON.stringify(schema)} data-lesson={entry.id}>
     <nav aria-label="パンくずリスト" class="text-[.9rem] text-muted"><a href={`${base}/`}>トップ</a> › <a href={`${base}/${level.id}/`}>{level.name}</a></nav>
     <h1>{entry.data.title}</h1>
     {

@@ -21,6 +21,11 @@
   --color-notice-bg: #fff8c5; /* データベースを準備中の帯 */
   --color-error-bg: #fff5f5; /* SQL のエラー */
   --color-error-line: #ff8182;
+  --color-progress-todo: #656d76; /* 進捗の印（未着手） */
+  --color-progress-doing: #9a6700; /* 進捗の印（途中） */
+  --color-progress-done: #116329; /* 進捗の印（修了） */
+  --color-progress-bar: #1f6feb; /* 進捗バーの済んだ部分 */
+  --color-progress-track: #d0d7de; /* 進捗バーの残りの部分 */
 
   --font-sans: system-ui, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
   --font-mono: ui-monospace, Consolas, "BIZ UDGothic", monospace;

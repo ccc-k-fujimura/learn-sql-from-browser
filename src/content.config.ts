@@ -13,15 +13,18 @@ const lessons = defineCollection({
   schema: z.strictObject({
     title: z.string(),
     goal: z.string(),
-    exercises: z.array(
-      z.strictObject({
-        prompt: z.string(),
-        answer: z.string(),
-        hints: z.array(z.string()),
-        ordered: z.boolean().default(false),
-        checkNames: z.boolean().default(false),
-      }),
-    ),
+    // 進捗の修了（全問正解）が成り立つよう、演習は 1 問以上
+    exercises: z
+      .array(
+        z.strictObject({
+          prompt: z.string(),
+          answer: z.string(),
+          hints: z.array(z.string()),
+          ordered: z.boolean().default(false),
+          checkNames: z.boolean().default(false),
+        }),
+      )
+      .min(1),
   }),
 });
 

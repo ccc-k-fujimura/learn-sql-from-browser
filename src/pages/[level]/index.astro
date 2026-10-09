@@ -17,16 +17,79 @@ const base = import.meta.env.BASE_URL;
   <nav aria-label="パンくずリスト" class="text-[.9rem] text-muted"><a href={`${base}/`}>トップ</a> › <span aria-current="page">{level.name}</span></nav>
   <h1>{level.name}</h1>
   <p>{level.boundary}</p>
+  {/* 進捗は localStorage にしかないので、HTML はすべて未着手で出し、下のスクリプトが書き換える */}
+  <p class="mb-1">修了 <span data-done-count>0</span> / {lessons.length} レッスン</p>
+  <progress
+    data-done-bar
+    max={lessons.length}
+    value="0"
+    aria-label="修了したレッスン"
+    class="block h-2 w-full appearance-none overflow-hidden rounded bg-progress-track [&::-moz-progress-bar]:bg-progress-bar [&::-webkit-progress-bar]:bg-progress-track [&::-webkit-progress-value]:bg-progress-bar"
+  ></progress>
+  {
+    lessons[0] && (
+      <p>
+        <a data-resume href={`${base}/${lessons[0].id}/`} class="inline-block rounded border border-control px-3.5 py-1 text-ink no-underline">
+          最初のレッスンから始める
+        </a>
+      </p>
+    )
+  }
   <h2>レッスン一覧</h2>
   <ol class="space-y-2">
     {
       lessons.map((entry) => (
-        <li>
-          <a href={`${base}/${entry.id}/`}>{entry.data.title}</a>
-          <br />
-          <span class="text-[.9rem] text-muted">{entry.data.goal}</span>
+        <li data-lesson={entry.id} data-exercises={entry.data.exercises.length}>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <a href={`${base}/${entry.id}/`}>{entry.data.title}</a>
+              <br />
+              <span class="text-[.9rem] text-muted">{entry.data.goal}</span>
+            </div>
+            <span data-mark class="shrink-0 rounded-full border border-current px-2 text-[.9rem] text-progress-todo">未着手</span>
+          </div>
         </li>
       ))
     }
   </ol>
 </Layout>
+
+<script>
+  import { levelProgress, loadSolved, type LessonProgress } from '../../progress';
+
+  // 印は色だけでなく文字でも見分けられるようにする
+  const MARKS: Record<LessonProgress, [text: string, color: string]> = {
+    todo: ['未着手', 'text-progress-todo'],
+    doing: ['途中', 'text-progress-doing'],
+    done: ['修了', 'text-progress-done'],
+  };
+
+  function render() {
+    const items = [...document.querySelectorAll<HTMLElement>('li[data-lesson]')];
+    const lessons = items.map((li) => ({ id: li.dataset.lesson!, exercises: Number(li.dataset.exercises) }));
+    const { progress, doneCount, next, started } = levelProgress(lessons, loadSolved());
+    items.forEach((li, i) => {
+      const mark = li.querySelector<HTMLElement>('[data-mark]')!;
+      const [text, color] = MARKS[progress[i]!];
+      mark.textContent = text;
+      mark.classList.remove(...Object.values(MARKS).map(([, c]) => c));
+      mark.classList.add(color);
+    });
+    document.querySelector('[data-done-count]')!.textContent = String(doneCount);
+    document.querySelector<HTMLProgressElement>('[data-done-bar]')!.value = doneCount;
+
+    // 続きからは、修了していない最初のレッスンへ。1 本も手を付けていなければ「最初のレッスンから始める」のまま
+    const resume = document.querySelector<HTMLAnchorElement>('[data-resume]');
+    if (!resume) return;
+    // ponytail: すべて修了したらボタンを隠す。修了のページ（#11）ができたら、そこへのリンクにする
+    resume.parentElement!.hidden = next === -1;
+    const link = items[next]?.querySelector('a');
+    if (!link) return;
+    resume.href = link.href;
+    resume.textContent = started ? `続きから：${next + 1}. ${link.textContent}` : '最初のレッスンから始める';
+  }
+
+  render();
+  // 戻るボタンでレッスンのページから戻ると、ページが bfcache から復元され、スクリプトが走り直さない
+  addEventListener('pageshow', (e) => e.persisted && render());
+</script>
