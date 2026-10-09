@@ -5,7 +5,7 @@ import { answerFlaws, type Exercise } from './answers';
 const lessons = import.meta.glob<{ frontmatter: { exercises: Exercise[] } }>('./content/lessons/*/*.md', { eager: true });
 const seeds = import.meta.glob<string>('./data/*/seed.sql', { query: '?raw', import: 'default', eager: true });
 const db = await PGlite.create();
-const intro = seeds['./data/intro/seed.sql']!;
+const introSeed = seeds['./data/intro/seed.sql']!;
 
 // 検査そのものを、わざと誤った演習で確かめる
 test.each([
@@ -16,8 +16,14 @@ test.each([
   ['小文字の where を含むのに全行になる', { answer: 'select title from books where price > 0;' }, 'books の全行'],
   ['ordered: true なのに ORDER BY がない', { answer: 'SELECT title FROM books WHERE price > 1000;', ordered: true }, 'ORDER BY'],
   ['結果の表がない', { answer: 'DELETE FROM books;' }, '結果の表がない'],
+  ['副問い合わせで絞っていても全行になる', { answer: 'SELECT * FROM (SELECT * FROM books WHERE price > 0) AS t;' }, 'books の全行'],
+  // ORDER BY は、最後の文の外側だけで探す。文字列とコメントの中の語は数えない
+  ['コメントの中の ORDER BY は数えない', { answer: 'SELECT title FROM books WHERE price > 1000; -- ORDER BY', ordered: true }, 'ORDER BY'],
+  ['/* */ の中の ORDER BY は数えない', { answer: 'SELECT title FROM books /* ORDER BY price */ WHERE price > 1000;', ordered: true }, 'ORDER BY'],
+  ['OVER (ORDER BY …) は外側の ORDER BY ではない', { answer: 'SELECT title, rank() OVER (ORDER BY price) FROM books WHERE price > 1000;', ordered: true }, 'ORDER BY'],
+  ['前の文の ORDER BY は数えない', { answer: 'SELECT * FROM books ORDER BY id; SELECT title FROM books WHERE price > 1000;', ordered: true }, 'ORDER BY'],
 ])('誤った演習を見つける：%s', async (_, exercise, phrase) => {
-  const flaws = await answerFlaws(db, intro, exercise);
+  const flaws = await answerFlaws(db, introSeed, exercise);
   expect(flaws).toHaveLength(1);
   expect(flaws[0]).toContain(phrase);
 });
@@ -31,8 +37,10 @@ test.each([
   ['WHERE も LIMIT もなければ、全行でよい', { answer: 'SELECT * FROM books;' }],
   ['絞り込んで並べる', { answer: 'SELECT title FROM books WHERE price > 1000 ORDER BY price, id;', ordered: true }],
   ['小文字で、改行をはさんで書いても見分ける', { answer: 'select title from books\nwhere price > 1000\norder\n  by price, id;', ordered: true }],
+  ['文字列の中の WHERE は数えない', { answer: "SELECT 'WHERE' AS w FROM books;" }],
+  ['文字列の中の ; で文を区切らない', { answer: "SELECT title FROM books WHERE price > 1000 ORDER BY replace(title, ';', ''), id;", ordered: true }],
 ])('正しい演習は通す：%s', async (_, exercise) => {
-  expect(await answerFlaws(db, intro, exercise)).toEqual([]);
+  expect(await answerFlaws(db, introSeed, exercise)).toEqual([]);
 });
 
 // 全レッスンの全演習の模範解答を、そのレベルの題材データで検査する。テスト名で、どのレッスンのどの演習かがわかる

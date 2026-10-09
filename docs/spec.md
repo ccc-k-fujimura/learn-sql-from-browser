@@ -392,9 +392,12 @@ frontmatter の項目は次のとおりで、content collection のスキーマ�
 
 検査は `src/answers.test.ts` にあり、CI の `pnpm test` で走る（失敗すると、後ろのビルドと公開も止まる）。
 テスト名は「模範解答：intro/01-first-select.md の演習 1」のようになり、どのレッスンのどの演習かがわかる。
-WHERE、LIMIT、ORDER BY は、模範解答の文面を正規表現で探す。
-文字列、コメント、副問い合わせ、`OVER (ORDER BY …)` の中の語も数えるので、WHERE と LIMIT は誤検出することがあり、外側の ORDER BY の書き忘れは見逃すことがある。
-副問い合わせやウィンドウ関数の演習を作るときに、外側の文だけを見る方法に変える。
+WHERE、LIMIT、ORDER BY は、模範解答の最後の文から、文字列、引用符で囲んだ名前、コメントを除いて探す。
+採点に使うのも、最後の文の結果である。
+WHERE と LIMIT は副問い合わせの中も数え、ORDER BY は外側の文（括弧の外）だけを見る。
+副問い合わせの中の ORDER BY や `OVER (ORDER BY …)` は、結果の並びを決めないからである。
+選択リストの相関副問い合わせにだけ WHERE がある模範解答は、全行なら誤りとされる。
+この誤検出ではビルドが止まるので、人が気づく。
 
 出典：[レッスンファイルの書式](../.scratch/sql-learning-site/issues/09-lesson-file-format.md)
 
