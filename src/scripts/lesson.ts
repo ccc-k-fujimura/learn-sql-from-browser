@@ -155,7 +155,7 @@ for (const section of document.querySelectorAll<HTMLElement>('.exercise')) {
       answerRun = undefined;
       return [renderStopped(answerResult)];
     }
-    // ponytail: 模範解答がエラーにも結果の表なしにもならないことは、#8 の自動検査で確かめる
+    // 模範解答がエラーにも結果の表なしにもならないことは、answers.test.ts の自動検査で確かめている
     if (!answerResult.ok || !answerResult.result) throw new Error(`模範解答を実行できません：${answer}`);
     const expectedTable = answerResult.result;
     const verdict = grade(expectedTable, result, options);

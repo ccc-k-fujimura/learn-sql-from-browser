@@ -382,11 +382,19 @@ frontmatter の項目は次のとおりで、content collection のスキーマ�
 次のどれかに当たれば、ビルドを止める。
 
 - 実行するとエラーになる。
+- 結果の表がない（最後の文が SELECT ではない）。
+  レッスン画面は、期待結果があることを前提にしている。
 - 結果が 0 行になる。
 - WHERE か LIMIT を含むのに、結果が `books` の全行になる。
 - `ordered: true` なのに、模範解答に ORDER BY がない。
 
 並びが 1 通りに決まるかは機械では判定しにくいので、人のレビューで確かめる。
+
+検査は `src/answers.test.ts` にあり、CI の `pnpm test` で走る（失敗すると、後ろのビルドと公開も止まる）。
+テスト名は「模範解答：intro/01-first-select.md の演習 1」のようになり、どのレッスンのどの演習かがわかる。
+WHERE、LIMIT、ORDER BY は、模範解答の文面を正規表現で探す。
+文字列、コメント、副問い合わせ、`OVER (ORDER BY …)` の中の語も数えるので、WHERE と LIMIT は誤検出することがあり、外側の ORDER BY の書き忘れは見逃すことがある。
+副問い合わせやウィンドウ関数の演習を作るときに、外側の文だけを見る方法に変える。
 
 出典：[レッスンファイルの書式](../.scratch/sql-learning-site/issues/09-lesson-file-format.md)
 
