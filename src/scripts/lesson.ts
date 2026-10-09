@@ -5,8 +5,10 @@ import { createDb, type Stopped } from '../db/client';
 import type { ResultTable, RunResult, SqlError } from '../db/run';
 import { errorRange, explainError, isSqlError } from '../errors';
 import { grade, verdictText, type GradeOptions } from '../grade';
+import { recordSolved } from '../progress';
 
-const schema: Record<string, string[]> = JSON.parse(document.querySelector<HTMLElement>('[data-schema]')!.dataset.schema!);
+const { schema: schemaJson, lesson: lessonId } = document.querySelector<HTMLElement>('[data-lesson]')!.dataset;
+const schema: Record<string, string[]> = JSON.parse(schemaJson!);
 // ponytail: 最初のテーブルの列を「books.」なしで補完する。テーブルが 1 つの入門向けで、増えたら見直す
 const defaultTable = Object.keys(schema)[0];
 
@@ -139,7 +141,7 @@ for (const code of document.querySelectorAll('pre > code.language-sql')) {
 }
 
 // 演習は、模範解答をその場で実行した期待結果と比べて採点する。期待結果の表は見せない
-for (const section of document.querySelectorAll<HTMLElement>('.exercise')) {
+for (const [index, section] of document.querySelectorAll<HTMLElement>('.exercise').entries()) {
   const { answer, hints, ...options }: { answer: string; hints: string[] } & GradeOptions = JSON.parse(section.dataset.exercise!);
   let answerRun: Promise<RunResult | Stopped> | undefined;
   // 模範解答は、答え合わせで 1 回間違えるまで開けない。SQL のエラーも間違いに数え、空のままの実行は数えない
@@ -159,6 +161,8 @@ for (const section of document.querySelectorAll<HTMLElement>('.exercise')) {
     if (!answerResult.ok || !answerResult.result) throw new Error(`模範解答を実行できません：${answer}`);
     const expectedTable = answerResult.result;
     const verdict = grade(expectedTable, result, options);
+    // 進捗は、レッスンの名前と演習の番号（ページの上からの順）で残す
+    if (verdict.ok) recordSolved(lessonId!, index);
     if (!verdict.ok && sql.trim()) unlockAnswer();
     const diff = !verdict.ok && verdict.kind === 'rows' ? verdict : undefined;
     return [
