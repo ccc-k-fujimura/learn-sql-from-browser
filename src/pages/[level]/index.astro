@@ -58,7 +58,7 @@ const base = import.meta.env.BASE_URL;
   import { levelProgress, loadSolved, type LessonProgress } from '../../progress';
 
   // 印は色だけでなく文字でも見分けられるようにする
-  const MARKS: Record<LessonProgress, [text: string, color: string]> = {
+  const MARKS: Record<LessonProgress, [text: string, colorClass: string]> = {
     todo: ['未着手', 'text-progress-todo'],
     doing: ['途中', 'text-progress-doing'],
     done: ['修了', 'text-progress-done'],
@@ -70,10 +70,10 @@ const base = import.meta.env.BASE_URL;
     const { progress, doneCount, next, started } = levelProgress(lessons, loadSolved());
     items.forEach((li, i) => {
       const mark = li.querySelector<HTMLElement>('[data-mark]')!;
-      const [text, color] = MARKS[progress[i]!];
+      const [text, colorClass] = MARKS[progress[i]!];
       mark.textContent = text;
       mark.classList.remove(...Object.values(MARKS).map(([, c]) => c));
-      mark.classList.add(color);
+      mark.classList.add(colorClass);
     });
     document.querySelector('[data-done-count]')!.textContent = String(doneCount);
     document.querySelector<HTMLProgressElement>('[data-done-bar]')!.value = doneCount;

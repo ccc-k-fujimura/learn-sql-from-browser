@@ -13,7 +13,7 @@ const lessons = defineCollection({
   schema: z.strictObject({
     title: z.string(),
     goal: z.string(),
-    // 進捗の修了（全問正解）が成り立つよう、演習は 1 問以上
+    // レッスンの修了（演習に全問正解）が成り立つよう、演習は 1 問以上
     exercises: z
       .array(
         z.strictObject({
