@@ -1,0 +1,22 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  /** levelLessons で並べた、レベルのレッスン */
+  lessons: CollectionEntry<'lessons'>[];
+}
+
+// 「続きから」のボタン。LevelProgress の中に置くと、文言と行き先が書き換わる。HTML は最初のレッスンへのリンクで出す
+const first = Astro.props.lessons[0];
+const base = import.meta.env.BASE_URL;
+---
+
+{
+  first && (
+    <p>
+      <a data-resume href={`${base}/${first.id}/`} class="inline-block rounded border border-control px-3.5 py-1 text-ink no-underline">
+        最初のレッスンから始める
+      </a>
+    </p>
+  )
+}

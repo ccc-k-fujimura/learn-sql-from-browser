@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { lessonProgress, levelProgress, loadSolved, recordSolved, type Solved } from './progress';
+import { lessonProgress, levelProgress, loadSolved, recordSolved, resumeLink, type Solved } from './progress';
 
 const KEY = 'browser-sql:progress';
 // localStorage の代わり
@@ -74,4 +74,20 @@ test('途中のレッスンがなく、後ろのレッスンだけ修了して�
 test('すべて修了したら、続きの先はない', () => {
   const solved: Solved = { 'intro/first-select': [0, 1, 2], 'intro/columns': [0, 1, 2], 'intro/review': [0, 1, 2, 3, 4] };
   expect(levelProgress(intro, solved)).toMatchObject({ next: -1, doneCount: 3 });
+});
+
+// 「続きから」のボタンの文言と行き先
+const lessons = [
+  { id: 'intro/first-select', exercises: 1, title: 'はじめての SQL', href: '/intro/first-select/' },
+  { id: 'intro/columns', exercises: 3, title: '列を選ぶ', href: '/intro/columns/' },
+];
+const level = { name: '入門', complete: '/intro/complete/' };
+
+test.each([
+  ['1 本も手を付けていなければ、最初のレッスンから始める', {} as Solved, { text: '最初のレッスンから始める', href: '/intro/first-select/' }],
+  ['手を付けたら、修了していない最初のレッスンの続きから', { 'intro/first-select': [0], 'intro/columns': [1] }, { text: '続きから：2. 列を選ぶ', href: '/intro/columns/' }],
+  ['1 本目に手を付けていなくても、後ろのレッスンに手を付けていれば続きから', { 'intro/columns': [0] }, { text: '続きから：1. はじめての SQL', href: '/intro/first-select/' }],
+  ['すべて修了したら、修了のページへ', { 'intro/first-select': [0], 'intro/columns': [0, 1, 2] }, { text: '入門を修了しました', href: '/intro/complete/' }],
+])('続きから：%s', (_, solved, expected) => {
+  expect(resumeLink(lessons, level, solved)).toEqual(expected);
 });

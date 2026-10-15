@@ -5,6 +5,8 @@ const KEY = 'browser-sql:progress';
 export type Solved = Record<string, number[]>;
 /** レッスンの進捗（未着手、途中、修了） */
 export type LessonProgress = 'todo' | 'doing' | 'done';
+/** 進捗を見せるページに渡す、レッスンの要約（レベルの並び順どおりに並べる） */
+export type ProgressLesson = { id: string; exercises: number; title: string; href: string };
 
 // localStorage は、プライベートウィンドウや保存の拒否で、触れるだけで例外になることがある。
 // そのときは記録を空として扱い、画面は未着手のまま動かす。配列でない値は読み飛ばす
@@ -47,4 +49,13 @@ export function levelProgress(lessons: { id: string; exercises: number }[], solv
     next: progress.findIndex((p) => p !== 'done'),
     started: progress.some((p) => p !== 'todo'),
   };
+}
+
+// 「続きから」のボタンの文言と行き先。修了していない最初のレッスンへ飛び、1 本も手を付けていなければ
+// 「最初のレッスンから始める」、すべて修了していれば修了のページへ
+export function resumeLink(lessons: ProgressLesson[], level: { name: string; complete: string }, solved: Solved) {
+  const { next, started } = levelProgress(lessons, solved);
+  const lesson = lessons[next];
+  if (!lesson) return { text: `${level.name}を修了しました`, href: level.complete };
+  return { text: started ? `続きから：${next + 1}. ${lesson.title}` : '最初のレッスンから始める', href: lesson.href };
 }

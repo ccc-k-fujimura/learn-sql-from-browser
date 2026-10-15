@@ -1,0 +1,64 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { progressLessons } from '../lessons';
+import type { Level } from '../levels';
+
+interface Props {
+  level: Level;
+  /** levelLessons で並べた、レベルのレッスン */
+  lessons: CollectionEntry<'lessons'>[];
+}
+
+// 進捗を見せる範囲。進捗は localStorage にしかないので、中の HTML はすべて未着手で出し、下のスクリプトが書き換える。
+// 書き換えるのは、修了数と進捗バー（DoneBar）、「続きから」（ResumeLink）、進捗の印（data-mark、レッスンの並び順）、
+// 修了したかどうかで出し分ける要素（data-if-done、data-if-not-done）。範囲は入れ子にしない
+const { level, lessons } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+
+<div
+  data-level-progress
+  data-lessons={JSON.stringify(progressLessons(lessons, base))}
+  data-level-name={level.name}
+  data-complete={`${base}/${level.id}/complete/`}
+>
+  <slot />
+</div>
+
+<script>
+  import { levelProgress, loadSolved, resumeLink, type LessonProgress, type ProgressLesson } from '../progress';
+
+  // 印は色だけでなく文字でも見分けられるようにする
+  const MARKS: Record<LessonProgress, [text: string, colorClass: string]> = {
+    todo: ['未着手', 'text-progress-todo'],
+    doing: ['途中', 'text-progress-doing'],
+    done: ['修了', 'text-progress-done'],
+  };
+
+  function render() {
+    const solved = loadSolved();
+    for (const root of document.querySelectorAll<HTMLElement>('[data-level-progress]')) {
+      const lessons: ProgressLesson[] = JSON.parse(root.dataset.lessons!);
+      const { progress, doneCount, next } = levelProgress(lessons, solved);
+      for (const el of root.querySelectorAll('[data-done-count]')) el.textContent = String(doneCount);
+      for (const el of root.querySelectorAll<HTMLProgressElement>('[data-done-bar]')) el.value = doneCount;
+      for (const [i, mark] of root.querySelectorAll<HTMLElement>('[data-mark]').entries()) {
+        const [text, colorClass] = MARKS[progress[i]!];
+        mark.textContent = text;
+        mark.classList.remove(...Object.values(MARKS).map(([, c]) => c));
+        mark.classList.add(colorClass);
+      }
+      const link = resumeLink(lessons, { name: root.dataset.levelName!, complete: root.dataset.complete! }, solved);
+      for (const a of root.querySelectorAll<HTMLAnchorElement>('[data-resume]')) {
+        a.textContent = link.text;
+        a.href = link.href;
+      }
+      for (const el of root.querySelectorAll<HTMLElement>('[data-if-done]')) el.hidden = next !== -1;
+      for (const el of root.querySelectorAll<HTMLElement>('[data-if-not-done]')) el.hidden = next === -1;
+    }
+  }
+
+  render();
+  // 戻るボタンでレッスンのページから戻ると、ページが bfcache から復元され、スクリプトが走り直さない
+  addEventListener('pageshow', (e) => e.persisted && render());
+</script>

@@ -1,5 +1,6 @@
 ---
 import { getCollection, render } from 'astro:content';
+import Breadcrumb from '../../components/Breadcrumb.astro';
 import Layout from '../../layouts/Layout.astro';
 import { levelLessons } from '../../lessons';
 import { levels } from '../../levels';
@@ -26,7 +27,7 @@ const { Content } = await render(entry);
 <Layout title={entry.data.title}>
   <div slot="banner" id="db-banner" class="sticky top-0 z-10 bg-notice-bg px-4 py-1 text-[.9rem]" hidden>データベースを準備しています…</div>
   <div data-schema={JSON.stringify(schema)} data-lesson={entry.id}>
-    <nav aria-label="パンくずリスト" class="text-[.9rem] text-muted"><a href={`${base}/`}>トップ</a> › <a href={`${base}/${level.id}/`}>{level.name}</a></nav>
+    <Breadcrumb level={level} />
     <h1>{entry.data.title}</h1>
     {
       Object.entries(level.tables).map(([table, columns]) => (
@@ -55,11 +56,18 @@ const { Content } = await render(entry);
         </section>
       ))
     }
-    {/* ponytail: 総まとめの「次」（修了のページへ）は #11 で足す */}
     <nav aria-label="前後のレッスン" class="mt-6 grid grid-cols-[1fr_auto_1fr] gap-3 border-t border-line pt-4">
       <div>{prev && <a href={`${base}/${prev.id}/`} rel="prev">← {number - 1}. {prev.data.title}</a>}</div>
       <div class="whitespace-nowrap"><a href={`${base}/${level.id}/`}>レッスン一覧へ</a></div>
-      <div class="text-right">{next && <a href={`${base}/${next.id}/`} rel="next">{number + 1}. {next.data.title} →</a>}</div>
+      <div class="text-right">
+        {
+          next ? (
+            <a href={`${base}/${next.id}/`} rel="next">{number + 1}. {next.data.title} →</a>
+          ) : (
+            <a href={`${base}/${level.id}/complete/`} rel="next">{level.name}の修了へ →</a>
+          )
+        }
+      </div>
     </nav>
   </div>
   <script>
