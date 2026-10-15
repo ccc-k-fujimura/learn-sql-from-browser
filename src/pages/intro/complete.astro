@@ -1,0 +1,39 @@
+---
+import { getCollection } from 'astro:content';
+import Breadcrumb from '../../components/Breadcrumb.astro';
+import LevelProgress from '../../components/LevelProgress.astro';
+import ResumeLink from '../../components/ResumeLink.astro';
+import Layout from '../../layouts/Layout.astro';
+import { levelLessons } from '../../lessons';
+import { levels } from '../../levels';
+
+// ponytail: 入門だけの修了のページ。次のレベルが公開されているかは見ずに「準備中」と書く。
+// 2 つ目のレベルを公開するときに [level]/complete.astro にする（[lesson].astro の「修了へ」と「続きから」は /<レベル>/complete/ を指している）
+const index = levels.findIndex((l) => l.id === 'intro');
+const level = levels[index]!;
+const nextLevel = levels[index + 1]!;
+const lessons = levelLessons(await getCollection('lessons'), level.id);
+// 総まとめは、レベルの最後のレッスン
+const review = lessons.at(-1);
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title={`${level.name}の修了`}>
+  <Breadcrumb level={level} />
+  {/* 総まとめの「次」からは、ほかのレッスンを修了していなくても来るので、そのときは残りを知らせる。
+      HTML はほかのページと同じく未修了の側で出し、スクリプトが修了していれば切り替える */}
+  <LevelProgress level={level} lessons={lessons}>
+    <div data-if-done hidden>
+      <h1>{level.name}を修了しました</h1>
+      <p>1 つのテーブルから、条件に合う行と必要な列を取り出して、並べられるようになりました。</p>
+    </div>
+    <div data-if-not-done>
+      <h1>{level.name}の修了まであと少しです</h1>
+      <p>修了したレッスンは {lessons.length} 本中 <span data-done-count>0</span> 本です。</p>
+      <ResumeLink lessons={lessons} />
+    </div>
+  </LevelProgress>
+  <p>次の「{nextLevel.name}」（{nextLevel.boundary}）は準備中です。</p>
+  {review && <p>公開までのあいだは、<a href={`${base}/${review.id}/`}>総まとめ</a>の演習を解き直してみてください。</p>}
+  <p><a href={`${base}/${level.id}/`}>{level.name}のレッスン一覧へ</a></p>
+</Layout>

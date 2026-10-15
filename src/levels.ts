@@ -7,6 +7,10 @@ export type Level = {
   /** レベルの境界の 1 行 */
   boundary: string;
   published: boolean;
+  /** 1 レッスンの所要時間の目安。公開するレベルのカードに出す */
+  lessonTime?: string;
+  /** ブラウザではなく、ローカル環境（学習者の PC の PostgreSQL）で取り組む */
+  local?: boolean;
   /** レッスン画面の列の表と、エディタの補完に使う */
   tables: Record<string, Column[]>;
 };
@@ -17,6 +21,7 @@ export const levels: Level[] = [
     name: '入門',
     boundary: '1 つのテーブルから、条件に合う行と必要な列を取り出して並べる（SELECT のみ）',
     published: true,
+    lessonTime: '1 本 10〜15 分',
     tables: {
       books: [
         { name: 'id', meaning: '本の番号', example: '1' },
@@ -48,6 +53,7 @@ export const levels: Level[] = [
     name: '実践応用',
     boundary: 'Docker で用意したローカル環境の PostgreSQL で、テーブル設計、インデックス、トランザクション、実務の課題に取り組む',
     published: false,
+    local: true,
     tables: {},
   },
 ];

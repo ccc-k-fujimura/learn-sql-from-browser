@@ -1,9 +1,52 @@
 ---
-// ponytail: #11 でトップページを作るまでの仮のページ
+import { getCollection } from 'astro:content';
+import DoneBar from '../components/DoneBar.astro';
+import LevelProgress from '../components/LevelProgress.astro';
+import ResumeLink from '../components/ResumeLink.astro';
 import Layout from '../layouts/Layout.astro';
+import { levelLessons } from '../lessons';
+import { levels } from '../levels';
+
+const entries = await getCollection('lessons');
+const base = import.meta.env.BASE_URL;
+// ponytail: 「続きから」は、公開している最初のレベル（入門）だけを見る。2 つ目のレベルを公開するときに、レベルをまたいで決める
+const first = levels.find((l) => l.published)!;
+const firstLessons = levelLessons(entries, first.id);
 ---
 
 <Layout>
   <h1>ブラウザで学ぶ SQL</h1>
-  <p>準備中です。</p>
+  <p>インストールなしで、ブラウザだけで SQL を書いて実行しながら学べます。</p>
+  <LevelProgress level={first} lessons={firstLessons}>
+    <ResumeLink lessons={firstLessons} />
+  </LevelProgress>
+  <div class="mt-6 grid gap-4 sm:grid-cols-2">
+    {
+      levels.map((level) => {
+        if (!level.published)
+          return (
+            <div class="rounded-lg border border-line bg-soon-bg p-4 text-muted">
+              <h2 class="mt-0">
+                {level.name} <span class="rounded-full border border-current px-2 align-middle text-[.9rem] font-normal">準備中</span>
+              </h2>
+              <p>{level.boundary}</p>
+              {level.local && <p class="mb-0">自分の PC に用意した環境で取り組みます。</p>}
+            </div>
+          );
+        const lessons = levelLessons(entries, level.id);
+        return (
+          <LevelProgress level={level} lessons={lessons}>
+            <a href={`${base}/${level.id}/`} class="block h-full rounded-lg border border-line p-4 text-ink no-underline hover:border-accent">
+              <h2 class="mt-0">{level.name}</h2>
+              <p>{level.boundary}</p>
+              <p class="text-[.9rem] text-muted">
+                {lessons.length} レッスン{level.lessonTime && `（${level.lessonTime}）`}
+              </p>
+              <DoneBar total={lessons.length} />
+            </a>
+          </LevelProgress>
+        );
+      })
+    }
+  </div>
 </Layout>

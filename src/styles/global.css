@@ -26,6 +26,7 @@
   --color-progress-done: #116329; /* 進捗の印（修了） */
   --color-progress-bar: #1f6feb; /* 進捗バーの済んだ部分 */
   --color-progress-track: #d0d7de; /* 進捗バーの残りの部分 */
+  --color-soon-bg: #f6f8fa; /* 準備中のレベルのカード（文字は muted） */
 
   --font-sans: system-ui, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
   --font-mono: ui-monospace, Consolas, "BIZ UDGothic", monospace;

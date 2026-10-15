@@ -1,0 +1,19 @@
+---
+interface Props {
+  /** レベルのレッスンの数 */
+  total: number;
+}
+
+// 修了数と進捗バー。LevelProgress の中に置くと、数が書き換わる。
+// 進捗バーの残りの部分は背景との差が小さいので、修了数を文字でも添える
+const { total } = Astro.props;
+---
+
+<p class="mb-1">修了 <span data-done-count>0</span> / {total} レッスン</p>
+<progress
+  data-done-bar
+  max={total}
+  value="0"
+  aria-label="修了したレッスン"
+  class="block h-2 w-full appearance-none overflow-hidden rounded bg-progress-track [&::-moz-progress-bar]:bg-progress-bar [&::-webkit-progress-bar]:bg-progress-track [&::-webkit-progress-value]:bg-progress-bar"
+></progress>
